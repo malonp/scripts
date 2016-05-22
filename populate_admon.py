@@ -256,7 +256,14 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
         party.contact_mechanisms.append(contacto)
 
     accounts = filter(lambda x:x[6]==row[0], raccountnumberparty)
+    seen = set()
     for account in accounts:
+        if account[2] in seen:
+            print "Error: Cuenta y propietarios repetidos " + account[2]
+            continue
+        else:
+            seen.add(account[2])
+
         cuenta = None
         if account[2]!='\N' and idcuentas[account[2]]:
             cuenta = BankAccount.find([('id', '=', idcuentas[account[2]])])
