@@ -411,7 +411,7 @@ for row in runit:
                 print "Error: Coeficiente no encontrado para la fraccion " + row[0]
 
         condoparties = filter(lambda x:x[4]==row[0], rcondoparty)
-        #COPY condo_party (id, create_uid, create_date, write_uid, unit, role, party, write_date, address, mail, isactive, sepa_mandate) FROM stdin;
+        #COPY condo_party (id, create_uid, create_date, write_uid, unit, role, party, write_date, address, mail, active, sepa_mandate) FROM stdin;
         for condoparty in condoparties:
             direccion = None
 
@@ -430,7 +430,7 @@ for row in runit:
                                party = tercero[0],
                                address = direccion,
                                mail = False if (condoparty[9]=='f' or condoparty[9]==0) else True,
-                               isactive = False if (condoparty[10]=='f' or condoparty[10]==0) else True,
+                               active = False if (condoparty[10]=='f' or condoparty[10]==0) else True,
                                sepa_mandate = mandato)
             fraccion[0].parties.append(party)
 
