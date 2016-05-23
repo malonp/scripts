@@ -453,11 +453,12 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
 
     #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, message, pain) FROM stdin;
     comunidad2 = Company.find([('id', '=', idcompany[row[5]])])
-    
+
     fact = None
-    pain = CondoPain.find([('id', '=', idpains[row[12]])])
-    if len(pain)==1:
-        fact = pain[0]
+    if row[12]!='\N': #case condo_payment_group is included in any pain message
+        pain = CondoPain.find([('id', '=', idpains[row[12]])])
+        if len(pain)==1:
+            fact = pain[0]
 
     accountnumber = None
     accountnumbers = filter(lambda x:x[0]==row[8], raccountnumber)
