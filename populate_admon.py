@@ -234,7 +234,7 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
                                 city = address[1] if address[1]!='\N' else None,
                                 subdivision = provincia,
                                 country = pais,
-                                active = False if (address[13]=='f' or address[13]==0) else True)
+                                active = True)
             party.addresses.append(direccion)
 
         else:
@@ -244,7 +244,7 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
             party.addresses[0].city = address[1] if address[1]!='\N' else None
             party.addresses[0].subdivision = provincia
             party.addresses[0].country = pais
-            party.addresses[0].active = False if (address[13]=='f' or address[13]==0) else True
+            party.addresses[0].active = True
 
     contacts = filter(lambda x:x[9]==row[0], rcontact)
     for contact in contacts:
@@ -293,9 +293,15 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
     party.save()
     idparties[row[0]] = party.id
 
-    addresses = filter(lambda x:x[14]==row[0], raddress)
-    for address, i in zip(addresses, range(len(party.addresses))):
+    _save = False
+    for address, i in zip(addresses, range(len(addresses))):
             idaddress[address[0]] = party.addresses[i].id
+            if (address[13]=='f' or address[13]==0):
+                party.addresses[i].active = False
+                _save = True
+    if _save:
+        party.save()
+
 
 for row in rrelation:
     tercero_to = tercero_from = None
