@@ -199,9 +199,16 @@ for row in raccount:
     #COPY bank_account_number (id, create_uid, account, create_date, sequence, number, write_uid, write_date, number_compact, type) FROM stdin;
     for accountnumber in accountnumbers:
         account.numbers.new(type = accountnumber[9],
+                            sequence = int(accountnumber[4]) if accountnumber[4]!='\N' else None,
                             number = accountnumber[5])
     account.save()
     idcuentas[row[0]] = account.id
+
+#Check orphan account_numbers
+raccountnumberparty_account = [item[2] for item in raccountnumberparty]
+orphan = [item for item in raccountnumber if item[2] not in raccountnumberparty_account]
+for item in orphan:
+    print 'Error: cuenta numero ' + item[5] + ' sin propietario'
 
 for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in rcompany] else True, field[7])):
 
@@ -234,6 +241,7 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
                                 city = address[1] if address[1]!='\N' else None,
                                 subdivision = provincia,
                                 country = pais,
+                                sequence = int(address[7]) if address[7]!='\N' else None,
                                 active = True)
             party.addresses.append(direccion)
 
@@ -252,9 +260,11 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
         contacto = ContactMechanism(comment = contact[1] if contact[1]!='\N' else None,
                                     value = contact[5] if contact[5]!='\N' else None,
                                     type = contact[10] if contact[10]!='\N' else None,
+                                    sequence = int(contact[4]) if contact[4]!='\N' else None,
                                     active = False if (contact[8]=='f' or contact[8]==0) else True)
         party.contact_mechanisms.append(contacto)
 
+    #COPY "bank_account-party_party" (id, create_uid, account, create_date, write_uid, write_date, owner)  FROM stdin;
     accounts = filter(lambda x:x[6]==row[0], raccountnumberparty)
     seen = set()
     for account in accounts:
@@ -396,7 +406,11 @@ for row in rmandate:
                            party = tercero[0],
                            scheme = row[11] if row[11]!='\N' else None,
                            type = row[12] if row[12]!='\N' else None)
-    condomandate.save()
+    if len(accountnumber.account.owners):
+        condomandate.save()
+    else:
+        print "Error: numero de cuenta " + accountnumber.number \
+            + " sin propietario y utilizada en mandato " + row[6] if row[6]!='\N' else None
     idmandate[row[0]] = condomandate.id
 
 for row in runit:
