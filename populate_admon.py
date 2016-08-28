@@ -212,8 +212,9 @@ for item in orphan:
 
 for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in rcompany] else True, field[7])):
 
-    #Banks has id<=420
-    if Decimal(row[0])<=420:
+    #bypass warning on duplicate party's name when is a bank
+    categories = [c[1] for c in filter(lambda x:x[6]==row[0], rcategoryrel)]
+    if "bank" in [category[3] for category in rcategory if category[0] in categories ]:
         continue
 
 #TODO lang
