@@ -226,7 +226,8 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
                   active = False if (row[6]=='f' or row[6]==0) else True,
                   lang = es)
 
-    addresses = filter(lambda x:x[14]==row[0], raddress)
+    addresses1 = filter(lambda x:x[14]==row[0], raddress)
+    addresses = filter(lambda x:sum(1 for a in [x[i] for i in [1, 3, 4, 8, 10, 11]] if a not in ['\N', u''])!=0, addresses1)
     #COPY party_address (id, city, create_date, name, zip, create_uid, country, sequence, subdivision, write_uid, streetbis, street, write_date, active, party) FROM stdin;
     for address, i in zip(addresses, range(len(addresses))):
         provincia = pais = None
@@ -254,6 +255,10 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
             party.addresses[0].subdivision = provincia
             party.addresses[0].country = pais
             party.addresses[0].active = True
+
+        num = len(addresses1)-len(addresses)
+        if num!=0:
+            print "Aviso: {0} direccion(es) sin datos en propietario: ".format(num) + row[7]
 
     contacts = filter(lambda x:x[9]==row[0], rcontact)
     for contact in contacts:
