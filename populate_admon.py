@@ -214,7 +214,7 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
 
     #bypass warning on duplicate party's name when is a bank
     categories = [c[1] for c in filter(lambda x:x[6]==row[0], rcategoryrel)]
-    if "bank" in [category[3] for category in rcategory if category[0] in categories ]:
+    if u'bank' in [category[3] for category in rcategory if category[0] in categories ]:
         continue
 
 #TODO lang
@@ -441,7 +441,14 @@ for row in runit:
                 tercero = Party.find([('id', '=', idparties[condoparty[6]]), ('active', '=', False)])
 
             if condoparty[8]!='\N':
-                direccion, = Address.find([('id', '=', idaddress[condoparty[8]])])
+                direccion = None
+                direcciones = Address.find([('id', '=', idaddress[condoparty[8]])])
+                if len(direcciones)==0:
+                    direcciones = Address.find([('id', '=', idaddress[condoparty[8]]), ('active', '=', False)])
+                    if len(direcciones)!=1:
+                        print "Error: direccion de correspondencia en propietario " + str(idparties[condoparty[6]])
+
+                direccion = direcciones[0]
 
             mandato = None
             if condoparty[11]!='\N':
@@ -449,7 +456,7 @@ for row in runit:
 
             party = CondoParty(role = condoparty[5] if condoparty[5]!='\N' else None,
                                party = tercero[0],
-                               address = direccion,
+                               address = direccion if condoparty[8]!='\N' else None,
                                mail = False if (condoparty[9]=='f' or condoparty[9]==0) else True,
                                active = False if (condoparty[10]=='f' or condoparty[10]==0) else True,
                                sepa_mandate = mandato)
