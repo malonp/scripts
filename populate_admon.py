@@ -32,6 +32,7 @@ Mandate = Model.get('condo.payment.sepa.mandate')
 Party = Model.get('party.party')
 PartyRelation = Model.get('party.relation.all')
 PartyRelationType = Model.get('party.relation.type')
+Sequence = Model.get('ir.sequence')
 Subdivision = Model.get('country.subdivision')
 Translation = Model.get('ir.translation')
 UnitFactor = Model.get('condo.unit-factor')
@@ -117,6 +118,10 @@ idmandate = {}
 idparties = {}
 idpreltyp = {}
 idpains   = {}
+
+party_seq, = Sequence.find([('name', '=', 'Party')])
+party_seq.number_next_internal = 10001
+party_seq.save()
 
 for row in sorted(rcategory, key=lambda field: field[0]):
     padre = None
@@ -511,7 +516,7 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
                               pain = fact)
 
     payments = filter(lambda x:x[7]==row[0], rpayment)
-    #COPY condo_payment (id, create_date, write_uid, currency, unit, create_uid, fee, "group", sepa_end_to_end_id, state, party, type, description, sepa_mandate, write_date, date, amount) FROM stdin;
+    #COPY condo_payment (id, create_date, write_uid, currency, unit, create_uid, "group", sepa_end_to_end_id, state, party, type, description, sepa_mandate, write_date, date, amount) FROM stdin;
     for payment in payments:
 
         moneda = None
@@ -538,7 +543,6 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
 
         recibo = CondoPayment(currency = moneda,
                               unit = fraccion,
-                              fee = False if (payment[6]=='f' or payment[6]==0) else True,
                               sepa_end_to_end_id = payment[8] if payment[8]!='\N' else None,
                               state = payment[9] if payment[9]!='\N' else None,
                               party = tercero,
