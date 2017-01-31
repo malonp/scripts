@@ -10,6 +10,7 @@ from decimal import Decimal
 from datetime import datetime
 
 config = config.set_trytond('sqlite://')
+#config = config.set_trytond(config_file='/etc/tryton/trytond.conf', database='admon', user='admin')
 
 Address = Model.get('party.address')
 Bank = Model.get('bank')
@@ -120,7 +121,7 @@ idpreltyp = {}
 idpains   = {}
 
 party_seq, = Sequence.find([('name', '=', 'Party')])
-party_seq.number_next_internal = 10001
+party_seq.number_next = 10001
 party_seq.save()
 
 for row in sorted(rcategory, key=lambda field: field[0]):
