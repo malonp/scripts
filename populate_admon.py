@@ -442,22 +442,22 @@ for row in runit:
             else:
                 print "Error: Coeficiente no encontrado para la fraccion " + row[0]
 
-        condoparties = filter(lambda x:x[4]==row[0], rcondoparty)
-        #COPY condo_party (id, create_uid, create_date, write_uid, unit, role, party, write_date, address, mail, active, sepa_mandate) FROM stdin;
+        condoparties = filter(lambda x:x[10]==row[0], rcondoparty)
+        #COPY condo_party (id, create_uid, create_date, write_uid, role, party, write_date, address, active, mail, unit, sepa_mandate) FROM stdin;
         for condoparty in condoparties:
             direccion = None
 
-            tercero = Party.find([('id', '=', idparties[condoparty[6]])])
+            tercero = Party.find([('id', '=', idparties[condoparty[5]])])
             if len(tercero)==0:
-                tercero = Party.find([('id', '=', idparties[condoparty[6]]), ('active', '=', False)])
+                tercero = Party.find([('id', '=', idparties[condoparty[5]]), ('active', '=', False)])
 
-            if condoparty[8]!='\N':
+            if condoparty[7]!='\N':
                 direccion = None
-                direcciones = Address.find([('id', '=', idaddress[condoparty[8]])])
+                direcciones = Address.find([('id', '=', idaddress[condoparty[7]])])
                 if len(direcciones)==0:
-                    direcciones = Address.find([('id', '=', idaddress[condoparty[8]]), ('active', '=', False)])
+                    direcciones = Address.find([('id', '=', idaddress[condoparty[7]]), ('active', '=', False)])
                     if len(direcciones)!=1:
-                        print "Error: direccion de correspondencia en propietario " + str(idparties[condoparty[6]])
+                        print "Error: direccion de correspondencia en propietario " + str(idparties[condoparty[5]])
 
                 direccion = direcciones[0]
 
@@ -465,11 +465,11 @@ for row in runit:
             if condoparty[11]!='\N':
                 mandato, = Mandate.find([('id', '=', idmandate[condoparty[11]])])
 
-            party = CondoParty(role = condoparty[5] if condoparty[5]!='\N' else None,
+            party = CondoParty(role = condoparty[4] if condoparty[4]!='\N' else None,
                                party = tercero[0],
-                               address = direccion if condoparty[8]!='\N' else None,
+                               address = direccion if condoparty[7]!='\N' else None,
                                mail = False if (condoparty[9]=='f' or condoparty[9]==0) else True,
-                               active = False if (condoparty[10]=='f' or condoparty[10]==0) else True,
+                               active = False if (condoparty[8]=='f' or condoparty[8]==0) else True,
                                sepa_mandate = mandato)
             fraccion[0].parties.append(party)
 
@@ -516,17 +516,17 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
                               message = row[11].replace('\\r\\n', '\n').replace('\\n', '\n') if row[11]!='\N' else None,
                               pain = fact)
 
-    payments = filter(lambda x:x[7]==row[0], rpayment)
-    #COPY condo_payment (id, create_date, write_uid, currency, unit, create_uid, "group", sepa_end_to_end_id, state, party, type, description, sepa_mandate, write_date, date, amount) FROM stdin;
+    payments = filter(lambda x:x[12]==row[0], rpayment)
+    #COPY condo_payment (id, create_uid, create_date, description, state, sepa_end_to_end_id, currency, amount, sepa_mandate, write_date, party, date, "group", write_uid, type, unit) FROM stdin;
     for payment in payments:
 
         moneda = None
-        if payment[3]!='\N':
-            moneda, = Currency.find([('id', '=', payment[3])])
+        if payment[6]!='\N':
+            moneda, = Currency.find([('id', '=', payment[6])])
 
         fraccion = None
-        if payment[4]!='\N':
-            unit, = filter(lambda x:x[0]==payment[4], runit)
+        if payment[15]!='\N':
+            unit, = filter(lambda x:x[0]==payment[15], runit)
             #COPY condo_unit (id, create_uid, create_date, name, company, write_uid, write_date) FROM stdin;
             fraccion, = CondoUnit.find([('name', '=', unit[3]), ('company','=', idcompany[unit[4]])])
 
@@ -539,19 +539,19 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
                 tercero = cparty[0]
 
         mandato = None
-        if payment[13]!='\N':
-            mandato, = Mandate.find([('id', '=', idmandate[payment[13]])])
+        if payment[8]!='\N':
+            mandato, = Mandate.find([('id', '=', idmandate[payment[8]])])
 
         recibo = CondoPayment(currency = moneda,
                               unit = fraccion,
-                              sepa_end_to_end_id = payment[8] if payment[8]!='\N' else None,
-                              state = payment[9] if payment[9]!='\N' else None,
+                              sepa_end_to_end_id = payment[5] if payment[5]!='\N' else None,
+                              state = payment[4] if payment[4]!='\N' else None,
                               party = tercero,
-                              type = payment[11] if payment[11]!='\N' else None,
-                              description = payment[12] if payment[12]!='\N' else None,
+                              type = payment[14] if payment[14]!='\N' else None,
+                              description = payment[3] if payment[3]!='\N' else None,
                               sepa_mandate = mandato,
-                              date = datetime.strptime(payment[15],"%Y-%m-%d") if payment[15]!='\N' else None,
-                              amount = Decimal(payment[16]) if payment[16]!='\N' else None)
+                              date = datetime.strptime(payment[11],"%Y-%m-%d") if payment[11]!='\N' else None,
+                              amount = Decimal(payment[7]) if payment[7]!='\N' else None)
         grupo.payments.append(recibo)
 
     grupo.save()
