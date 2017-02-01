@@ -5,12 +5,12 @@ from proteus import config, Model
 
 import os
 import unicodecsv
-from cStringIO import StringIO
 from decimal import Decimal
 from datetime import datetime
 
 config = config.set_trytond('sqlite://')
 #config = config.set_trytond(config_file='/etc/tryton/trytond.conf', database='admon', user='admin')
+#config = config.set_xmlrpc('https://user:passwd@ip:port/databasename')
 
 Address = Model.get('party.address')
 Bank = Model.get('bank')
@@ -53,6 +53,9 @@ raddress = map(tuple, r)
 
 r = unicodecsv.reader(file(path_data_file('party_contact_mechanism.csv')), delimiter='\t', encoding='utf-8')
 rcontact = map(tuple, r)
+
+r = unicodecsv.reader(file(path_data_file('bank.csv')), delimiter='\t', encoding='utf-8')
+rbank = map(tuple, r)
 
 r = unicodecsv.reader(file(path_data_file('bank_account.csv')), delimiter='\t', encoding='utf-8')
 raccount = map(tuple, r)
@@ -104,6 +107,9 @@ rpaymentgroup = map(tuple, r)
 
 r = unicodecsv.reader(file(path_data_file('condo_payment_pain.csv')), delimiter='\t', encoding='utf-8')
 rpain = map(tuple, r)
+
+r = unicodecsv.reader(file(path_data_file('country_country.csv')), delimiter='\t', encoding='utf-8')
+rcountry = map(tuple, r)
 
 r = unicodecsv.reader(file(path_data_file('ir_ui_view_search.csv')), delimiter='\t', encoding='utf-8')
 riruiview = map(tuple, r)
@@ -196,7 +202,22 @@ for row in raccount:
     if row[4]:
         moneda, = Currency.find([('id', '=', row[4])])
 
-    banco, = Bank.find([('id', '=', row[7])])
+    #COPY bank (id, create_uid, create_date, bic, write_uid, write_date, party, code, country) FROM stdin;
+    bank1, = filter(lambda x:x[0]==row[7], rbank)
+
+    #COPY country_country(id, create_uid, code, create_date, name, write_uid, write_date) FROM stdin;
+    pais1, = filter(lambda x:x[0]==bank1[8], rcountry)
+
+    pais, = Country.find([('code', '=', pais1[2])])
+
+    bancos = Bank.find([('code', '=', bank1[7]), ('country', '=', pais.id)])
+
+    if len(bancos)==1:
+        banco = bancos[0]
+    else:
+        banco = None
+        print 'Error: banco no encontrado code ' + bank1[7] + ' pais ' + bank1[8]
+
     #COPY bank_account (id, create_uid, create_date, write_uid, currency, write_date, active, bank) FROM stdin;
     account = BankAccount(currency = moneda,
                           active = False if (row[6]=='f' or row[6]==0) else True,
@@ -207,6 +228,10 @@ for row in raccount:
         account.numbers.new(type = accountnumber[9],
                             sequence = int(accountnumber[4]) if accountnumber[4]!='\N' else None,
                             number = accountnumber[5])
+
+        if (banco.code[0:2]=='ES' and accountnumber[5][5:9] != banco.code[2:6]):
+             print 'Alerta: cuenta ' + accountnumber[5] + ' no coincide con banco ' + banco.code
+
     account.save()
     idcuentas[row[0]] = account.id
 
@@ -240,7 +265,9 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
         if address[8]!='\N':
             provincia, = Subdivision.find([('id', '=', address[8])])
         if address[6]!='\N':
-            pais, = Country.find([('id', '=', address[6])])
+            pais1, = filter(lambda x:x[0]==address[6], rcountry)
+            pais, = Country.find([('code', '=', pais1[2])])
+
         if i!=0:
             direccion = Address(name = address[3] if address[3]!='\N' else None,
                                 street = address[11] if address[11]!='\N' else None,
