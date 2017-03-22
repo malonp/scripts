@@ -14,7 +14,15 @@ import unicodecsv
 from decimal import Decimal
 from datetime import datetime
 
-config = config.set_trytond('sqlite://')
+if len(sys.argv)==2:
+    try:
+        config = config.set_trytond(str(sys.argv[1]))
+    except:
+        sys.exit("Error: invalid uri " + sys.argv[1])
+else:
+    sys.exit("Error: invalid arguments number trytond_begin.py uri")
+
+#config = config.set_trytond('sqlite://')
 #config = config.set_trytond(config_file='/etc/tryton/trytond.conf', database='admon', user='admin')
 #config = config.set_xmlrpc('https://user:passwd@ip:port/databasename')
 
@@ -523,12 +531,12 @@ for row in sorted(rpain, key=lambda field:(field[5], idcompany[field[6]])):
 
 for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]])):
 
-    #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, message, pain) FROM stdin;
+    #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, pain, message) FROM stdin;
     comunidad2 = Company.find([('id', '=', idcompany[row[5]])])
 
     fact = None
     if row[12]!='\N': #case condo_payment_group is included in any pain message
-        pain = CondoPain.find([('id', '=', idpains[row[12]])])
+        pain = CondoPain.find([('id', '=', idpains[row[11]])])
         if len(pain)==1:
             fact = pain[0]
 
@@ -539,14 +547,14 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
     else:
         print "Error: numero de cuenta " + row[8]
 
-    #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, message, pain) FROM stdin;
+    #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, pain, message) FROM stdin;
     grupo = CondoPaymentGroup(reference = row[4] if row[4]!='\N' else None,
                               company = comunidad2[0],
                               sepa_batch_booking = False if (row[7]=='f' or row[7]==0) else True,
                               account_number = accountnumber,
                               sepa_charge_bearer = row[9] if row[9]!='\N' else None,
                               date = datetime.strptime(row[10],"%Y-%m-%d") if row[10]!='\N' else None,
-                              message = row[11].replace('\\r\\n', '\n').replace('\\n', '\n') if row[11]!='\N' else None,
+                              message = row[12].replace('\\r\\n', '\n').replace('\\n', '\n') if row[12]!='\N' else None,
                               pain = fact)
 
     payments = filter(lambda x:x[12]==row[0], rpayment)
