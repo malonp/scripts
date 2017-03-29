@@ -385,6 +385,7 @@ for row in rrelation:
 
 #note: package pytz must be installed on server (otherwise comment out timezone field attribution)
 for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], rparty)[0][7]):
+    #COPY company_company (id, create_uid, create_date, parent, footer, header, write_uid, currency, write_date, timezone, party, "is_Condominium", creditor_business_code, sepa_creditor_identifier, company_sepa_batch_booking_selection, company_account_number, company_sepa_charge_bearer) FROM stdin;
     moneda = padre = None
     if row[7]!='\N':
         moneda, = Currency.find([('id', '=', row[7])])
@@ -402,15 +403,19 @@ for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], r
                            timezone = row[9] if row[9]!='\N' else None,
                            party = tercero[0],
                            is_Condominium = False if (row[11]=='f' or row[11]==0) else True,
-                           creditor_bussines_code = row[12] if row[12]!='\N' else None,
-                           sepa_creditor_identifier = row[13] if row[13]!='\N' else None)
+                           creditor_business_code = row[12] if row[12]!='\N' else None,
+                           sepa_creditor_identifier = row[13] if row[13]!='\N' else None,
+                           company_sepa_batch_booking_selection = row[14] if row[14]!='\N' else None,
+                           company_account_number = row[15] if row[15]!='\N' else None,
+                           company_sepa_charge_bearer = row[16] if row[16]!='\N' else None,
+                           )
 
-        factors = filter(lambda x:x[8]==row[0], rfactor)
+        factors = filter(lambda x:x[7]==row[0], rfactor)
         for factor in factors:
-            #COPY condo_factor (id, create_uid, create_date, name, write_uid, notes, write_date, total, company) FROM stdin;
+            #COPY condo_factor (id, create_uid, create_date, name, write_uid, notes, write_date, company) FROM stdin;
             coeficiente = CondoFactor(name = factor[3] if factor[3]!='\N' else None,
                                       notes = factor[5] if factor[5]!='\N' else None,
-                                      total = Decimal(factor[7]) if factor[7]!='\N' else None)
+                                      )
             compania.condo_factors.append(coeficiente)
 
         units = filter(lambda x:x[4]==row[0], runit)
@@ -474,8 +479,8 @@ for row in runit:
         unitfactors = filter(lambda x:x[7]==row[0], runitfactor)
         for unitfactor in sorted(unitfactors, key=lambda id: id[6]):
             condofactor, = filter(lambda x:x[0]==unitfactor[6], rfactor)
-            comunidad, = Company.find([('id','=', idcompany[condofactor[8]])])
-            coeficiente = CondoFactor.find([('name','=', condofactor[3]),('company','=', idcompany[condofactor[8]])])
+            comunidad, = Company.find([('id','=', idcompany[condofactor[7]])])
+            coeficiente = CondoFactor.find([('name','=', condofactor[3]),('company','=', idcompany[condofactor[7]])])
             if len(coeficiente)==1:
                 coeffrac = UnitFactor(value = Decimal(unitfactor[3]) if unitfactor!='\N' else None,
                                       factor = coeficiente[0])
