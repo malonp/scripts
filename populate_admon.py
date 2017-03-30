@@ -40,6 +40,7 @@ CondoPaymentGroup = Model.get('condo.payment.group')
 CondoUnit = Model.get('condo.unit')
 ContactMechanism = Model.get('party.contact_mechanism')
 Country = Model.get('country.country')
+Subdivision = Model.get('country.subdivision')
 Currency = Model.get('currency.currency')
 Identifier = Model.get('party.identifier')
 Lang = Model.get('ir.lang')
@@ -124,6 +125,9 @@ rpain = map(tuple, r)
 
 r = unicodecsv.reader(file(path_data_file('country_country.csv')), delimiter='\t', encoding='utf-8')
 rcountry = map(tuple, r)
+
+r = unicodecsv.reader(file(path_data_file('country_subdivision.csv')), delimiter='\t', encoding='utf-8')
+rsubdivision = map(tuple, r)
 
 r = unicodecsv.reader(file(path_data_file('ir_ui_view_search.csv')), delimiter='\t', encoding='utf-8')
 riruiview = map(tuple, r)
@@ -276,11 +280,22 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
     #COPY party_address (id, city, create_date, name, zip, create_uid, country, sequence, subdivision, write_uid, streetbis, street, write_date, active, party) FROM stdin;
     for address, i in zip(addresses, range(len(addresses))):
         provincia = pais = None
-        if address[8]!='\N':
-            provincia, = Subdivision.find([('id', '=', address[8])])
+
         if address[6]!='\N':
             pais1, = filter(lambda x:x[0]==address[6], rcountry)
             pais, = Country.find([('code', '=', pais1[2])])
+
+        if address[8]!='\N':
+            # COPY country_subdivision (id, create_uid, code, create_date, name, parent, country, write_uid, write_date, type) FROM stdin;
+            subdivision = filter(lambda x:x[0]==address[8], rsubdivision)
+            if subdivision[0][6]!='\N':
+                pais2, = filter(lambda x:x[0]==subdivision[0][6], rcountry)
+                pais3, = Country.find([('code', '=', pais2[2])])
+
+                provincia, = Subdivision.find([('code', '=', subdivision[0][2]),
+                                               ('country', '=', pais3.id),])
+            else:
+                provincia, = Subdivision.find([('code', '=', subdivision[0][2])])
 
         if i!=0:
             direccion = Address(name = address[3] if address[3]!='\N' else None,
@@ -385,7 +400,7 @@ for row in rrelation:
 
 #note: package pytz must be installed on server (otherwise comment out timezone field attribution)
 for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], rparty)[0][7]):
-    #COPY company_company (id, create_uid, create_date, parent, footer, header, write_uid, currency, write_date, timezone, party, "is_Condominium", creditor_business_code, sepa_creditor_identifier, company_sepa_batch_booking_selection, company_account_number, company_sepa_charge_bearer) FROM stdin;
+    #COPY company_company (id, create_uid, create_date, parent, footer, header, write_uid, currency, write_date, timezone, party, "is_Condominium", sepa_creditor_identifier, creditor_business_code, company_sepa_batch_booking_selection, company_account_number, company_sepa_charge_bearer) FROM stdin;
     moneda = padre = None
     if row[7]!='\N':
         moneda, = Currency.find([('id', '=', row[7])])
@@ -403,8 +418,8 @@ for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], r
                            timezone = row[9] if row[9]!='\N' else None,
                            party = tercero[0],
                            is_Condominium = False if (row[11]=='f' or row[11]==0) else True,
-                           creditor_business_code = row[12] if row[12]!='\N' else None,
-                           sepa_creditor_identifier = row[13] if row[13]!='\N' else None,
+                           creditor_business_code = row[13] if row[13]!='\N' else None,
+                           sepa_creditor_identifier = row[12] if row[12]!='\N' else None,
                            company_sepa_batch_booking_selection = row[14] if row[14]!='\N' else None,
                            company_account_number = row[15] if row[15]!='\N' else None,
                            company_sepa_charge_bearer = row[16] if row[16]!='\N' else None,
