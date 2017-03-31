@@ -318,9 +318,9 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
             party.addresses[0].country = pais
             party.addresses[0].active = True
 
-        num = len(addresses1)-len(addresses)
-        if num!=0:
-            print "Aviso: {0} direccion(es) sin datos en propietario: ".format(num) + row[7]
+    num = len(addresses1)-len(addresses)
+    if num!=0 and len(addresses)!=0:
+        print("Aviso: {0} direccion(es) sin datos no fueron recreadas en propietario: ".format(num) + row[7])
 
     contacts = filter(lambda x:x[9]==row[0], rcontact)
     for contact in contacts:
@@ -377,6 +377,12 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
             if (address[13]=='f' or address[13]==0):
                 party.addresses[i].active = False
                 _save = True
+
+    if len(addresses)==0 and len(party.addresses):
+        print("Aviso: borradas {0} direcciones de propietario sin direccion (activa): ".format(len(party.addresses)) + row[7])
+        for address in party.addresses:
+            address.delete()
+
     if _save:
         party.save()
 
