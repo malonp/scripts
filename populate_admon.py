@@ -416,10 +416,16 @@ for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], r
     if len(tercero)==0:
         tercero = Party.find([('id', '=', idparties[row[10]]), ('active', '=', False)])
 
+    accountnumber = None
+    if row[15]:
+        accountnumbers = filter(lambda x:x[0]==row[15], raccountnumber)
+        if len(accountnumbers)==1:
+            accountnumber, = BankAccountNumber.find([('number', '=', accountnumbers[0][5])])
+
     if len(tercero)==1:
         compania = Company(parent = padre,
-                           footer = row[4] if row[4]!='\N' else None,
-                           header = row[5] if row[5]!='\N' else None,
+                           footer = row[4] if row[4]!='\N' else '',
+                           header = row[5] if row[5]!='\N' else '',
                            currency = moneda,
                            timezone = row[9] if row[9]!='\N' else None,
                            party = tercero[0],
@@ -427,7 +433,7 @@ for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], r
                            creditor_business_code = row[13] if row[13]!='\N' else None,
                            sepa_creditor_identifier = row[12] if row[12]!='\N' else None,
                            company_sepa_batch_booking_selection = row[14] if row[14]!='\N' else None,
-                           company_account_number = row[15] if row[15]!='\N' else None,
+                           company_account_number = accountnumber,
                            company_sepa_charge_bearer = row[16] if row[16]!='\N' else None,
                            )
 
@@ -519,14 +525,15 @@ for row in runit:
                 tercero = Party.find([('id', '=', idparties[condoparty[5]]), ('active', '=', False)])
 
             if condoparty[7]!='\N':
-                direccion = None
-                direcciones = Address.find([('id', '=', idaddress[condoparty[7]])])
-                if len(direcciones)==0:
-                    direcciones = Address.find([('id', '=', idaddress[condoparty[7]]), ('active', '=', False)])
-                    if len(direcciones)!=1:
-                        print "Error: direccion de correspondencia en propietario " + str(idparties[condoparty[5]])
-
-                direccion = direcciones[0]
+                direccion = direcciones = None
+                if condoparty[7] in idaddress:
+                    direcciones = Address.find([('id', '=', idaddress[condoparty[7]])])
+                    if len(direcciones)==0:
+                        direcciones = Address.find([('id', '=', idaddress[condoparty[7]]), ('active', '=', False)])
+                if not direcciones or len(direcciones)!=1:
+                    print "Error: direccion de correspondencia en propietario " + str(idparties[condoparty[5]]) + ' ' + tercero[0].name
+                else:
+                    direccion = direcciones[0]
 
             mandato = None
             if condoparty[11]!='\N':
