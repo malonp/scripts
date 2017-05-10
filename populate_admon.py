@@ -154,7 +154,7 @@ for row in sorted(rcategory, key=lambda field: field[0]):
         if idcategor[row[4]]:
             padre, = Category.find([('id', '=', idcategor[row[4]])])
         else:
-            print "Error: Verificar padre de la categoria " + row[0]
+            print("Error: Verificar padre de la categoria " + row[0])
 
     category = Category.find([('name', '=', row[3])])
     if len(category)==0:
@@ -234,7 +234,7 @@ for row in raccount:
         banco = bancos[0]
     else:
         banco = None
-        print 'Error: banco no encontrado code ' + bank1[7] + ' pais ' + bank1[8]
+        print('Error: banco no encontrado code ' + bank1[7] + ' pais ' + bank1[8])
 
     #COPY bank_account (id, create_uid, create_date, write_uid, currency, write_date, active, bank) FROM stdin;
     account = BankAccount(currency = moneda,
@@ -248,7 +248,7 @@ for row in raccount:
                             number = accountnumber[5])
 
         if (banco.code[0:2]=='ES' and accountnumber[5][5:9] != banco.code[2:6]):
-             print 'Alerta: cuenta ' + accountnumber[5] + ' no coincide con banco ' + banco.code
+             print('Alerta: cuenta ' + accountnumber[5] + ' no coincide con banco ' + banco.code)
 
     account.save()
     idcuentas[row[0]] = account.id
@@ -257,7 +257,7 @@ for row in raccount:
 raccountnumberparty_account = [item[2] for item in raccountnumberparty]
 orphan = [item for item in raccountnumber if item[2] not in raccountnumberparty_account]
 for item in orphan:
-    print 'Error: cuenta numero ' + item[5] + ' sin propietario'
+    print('Error: cuenta numero ' + item[5] + ' sin propietario')
 
 for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in rcompany] else True, field[7])):
 
@@ -337,7 +337,7 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
     seen = set()
     for account in accounts:
         if account[2] in seen:
-            print "Error: Cuenta y propietarios repetidos " + account[2]
+            print("Error: Cuenta y propietarios repetidos " + account[2])
             continue
         else:
             seen.add(account[2])
@@ -352,9 +352,9 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
                 if len(cuenta)==1:
                     party.bank_accounts.append(cuenta[0])
                 else:
-                    print "Error: Cuenta sin propietario " + account[2]
+                    print("Error: Cuenta sin propietario " + account[2])
         else:
-            print "Error: Verificar cuenta bancaria " + account[2]
+            print("Error: Verificar cuenta bancaria " + account[2])
 
     identifiers = filter(lambda x:x[6]==row[0], ridentifier)
     for identifier in identifiers:
@@ -455,7 +455,7 @@ for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], r
         idcompany[row[0]] = compania.id
 
     else:
-        print "Error: No se encuentra empresa " + row[0]
+        print("Error: No se encuentra empresa " + row[0])
 
 #set parent of companies
 for row in rcompany:
@@ -467,7 +467,7 @@ for row in rcompany:
             compania.parent = padre
             compania.save()
         else:
-            print "Error: Verificar padre de la empresa " + row[0]
+            print("Error: Verificar padre de la empresa " + row[0])
 
 for row in rmandate:
     comunidad = Company.find([('id', '=', idcompany[row[3]])])
@@ -481,7 +481,7 @@ for row in rmandate:
     if len(accountnumbers)==1:
         accountnumber, = BankAccountNumber.find([('number', '=', accountnumbers[0][5])])
     else:
-        print "Error: numero de cuenta " + row[7]
+        print("Error: numero de cuenta " + row[7])
     #COPY condo_payment_sepa_mandate (id, create_uid, create_date, company, write_uid, state, identification, account_number, write_date, signature_date, party, scheme, type) FROM stdin;
     condomandate = Mandate(company = comunidad[0],
                            signature_date = datetime.strptime(row[9],"%Y-%m-%d") if row[9]!='\N' else None,
@@ -494,8 +494,8 @@ for row in rmandate:
     if len(accountnumber.account.owners):
         condomandate.save()
     else:
-        print "Error: numero de cuenta " + accountnumber.number \
-            + " sin propietario y utilizada en mandato " + row[6] if row[6]!='\N' else None
+        print("Error: numero de cuenta " + accountnumber.number \
+            + " sin propietario y utilizada en mandato " + row[6] if row[6]!='\N' else None)
     idmandate[row[0]] = condomandate.id
 
 for row in runit:
@@ -513,43 +513,43 @@ for row in runit:
                                       factor = coeficiente[0])
                 fraccion[0].factors.append(coeffrac)
             else:
-                print "Error: Coeficiente no encontrado para la fraccion " + row[0]
+                print("Error: Coeficiente no encontrado para la fraccion " + row[0])
 
-        condoparties = filter(lambda x:x[10]==row[0], rcondoparty)
-        #COPY condo_party (id, create_uid, create_date, write_uid, role, party, write_date, address, active, mail, unit, sepa_mandate) FROM stdin;
+        condoparties = filter(lambda x:x[8]==row[0], rcondoparty)
+        #COPY condo_party (id, create_uid, create_date, write_uid, role, write_date, active, party, unit, sepa_mandate, address, mail) FROM stdin;
         for condoparty in condoparties:
             direccion = None
 
-            tercero = Party.find([('id', '=', idparties[condoparty[5]])])
+            tercero = Party.find([('id', '=', idparties[condoparty[7]])])
             if len(tercero)==0:
-                tercero = Party.find([('id', '=', idparties[condoparty[5]]), ('active', '=', False)])
+                tercero = Party.find([('id', '=', idparties[condoparty[7]]), ('active', '=', False)])
 
-            if condoparty[7]!='\N':
+            if condoparty[10]!='\N':
                 direccion = direcciones = None
-                if condoparty[7] in idaddress:
-                    direcciones = Address.find([('id', '=', idaddress[condoparty[7]])])
+                if condoparty[10] in idaddress:
+                    direcciones = Address.find([('id', '=', idaddress[condoparty[10]])])
                     if len(direcciones)==0:
-                        direcciones = Address.find([('id', '=', idaddress[condoparty[7]]), ('active', '=', False)])
+                        direcciones = Address.find([('id', '=', idaddress[condoparty[10]]), ('active', '=', False)])
                 if not direcciones or len(direcciones)!=1:
-                    print "Error: direccion de correspondencia en propietario " + str(idparties[condoparty[5]]) + ' ' + tercero[0].name
+                    print("Error: direccion de correspondencia en propietario " + str(idparties[condoparty[7]]) + ' ' + tercero[0].name)
                 else:
                     direccion = direcciones[0]
 
             mandato = None
-            if condoparty[11]!='\N':
-                mandato, = Mandate.find([('id', '=', idmandate[condoparty[11]])])
+            if condoparty[9]!='\N':
+                mandato, = Mandate.find([('id', '=', idmandate[condoparty[9]])])
 
             party = CondoParty(role = condoparty[4] if condoparty[4]!='\N' else None,
                                party = tercero[0],
-                               address = direccion if condoparty[7]!='\N' else None,
-                               mail = False if (condoparty[9]=='f' or condoparty[9]==0) else True,
-                               active = False if (condoparty[8]=='f' or condoparty[8]==0) else True,
+                               address = direccion if condoparty[10]!='\N' else None,
+                               mail = False if (condoparty[11]=='f' or condoparty[11]==0) else True,
+                               active = False if (condoparty[6]=='f' or condoparty[6]==0) else True,
                                sepa_mandate = mandato)
             fraccion[0].parties.append(party)
 
         fraccion[0].save()
     else:
-        print "Error: No se encuentra fraccion " + row[0]
+        print("Error: No se encuentra fraccion " + row[0])
 
 for row in sorted(rpain, key=lambda field:(field[5], idcompany[field[6]])):
     comunidad = Company.find([('id', '=', idcompany[row[6]])])
@@ -578,7 +578,7 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
     if len(accountnumbers)==1:
         accountnumber, = BankAccountNumber.find([('number', '=', accountnumbers[0][5])])
     else:
-        print "Error: numero de cuenta " + row[8]
+        print("Error: numero de cuenta " + row[8])
 
     #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, pain, message) FROM stdin;
     grupo = CondoPaymentGroup(reference = row[4] if row[4]!='\N' else None,
