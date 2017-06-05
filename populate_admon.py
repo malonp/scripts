@@ -568,10 +568,12 @@ for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]
     comunidad2 = Company.find([('id', '=', idcompany[row[5]])])
 
     fact = None
-    if row[12]!='\N': #case condo_payment_group is included in any pain message
+    if row[11]!='\N': #case condo_payment_group is included in any pain message
         pain = CondoPain.find([('id', '=', idpains[row[11]])])
         if len(pain)==1:
             fact = pain[0]
+        else:
+            print("Error: Facturacion referencia " + row[4] + " de comunidad " + comunidad2[0].party.name)
 
     accountnumber = None
     accountnumbers = filter(lambda x:x[0]==row[8], raccountnumber)
