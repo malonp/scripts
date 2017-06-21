@@ -325,7 +325,7 @@ for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in
     contacts = filter(lambda x:x[9]==row[0], rcontact)
     for contact in contacts:
         #COPY party_contact_mechanism (id, comment, create_uid, create_date, sequence, value, write_uid, write_date, active, party, type) FROM stdin;
-        contacto = ContactMechanism(comment = contact[1] if contact[1]!='\N' else None,
+        contacto = ContactMechanism(comment = contact[1].replace('\\r\\n', '\n').replace('\\n', '\n') if contact[1]!='\N' else None,
                                     value = contact[5] if contact[5]!='\N' else None,
                                     type = contact[10] if contact[10]!='\N' else None,
                                     sequence = int(contact[4]) if contact[4]!='\N' else None,
