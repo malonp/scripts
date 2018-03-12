@@ -17,8 +17,8 @@ from datetime import datetime
 if len(sys.argv)==2:
     try:
         config = config.set_trytond(str(sys.argv[1]))
-    except:
-        sys.exit("Error: invalid uri " + sys.argv[1])
+    except Exception as e:
+        sys.exit(str(e))
 else:
     sys.exit("Error: invalid arguments number trytond_begin.py uri")
 
