@@ -2,17 +2,21 @@
 # -*- coding: iso-8859-15 -*-
 
 from proteus import config, Model
+from sql import Table
+from trytond.transaction import Transaction
 
 import os
-
 import sys
-import csv
+
+import logging
+
+import unicodecsv as csv
 #http://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
 csv.field_size_limit(sys.maxsize)
 
-import unicodecsv
 from decimal import Decimal
 from datetime import datetime
+from tqdm import tqdm
 
 if len(sys.argv)==2:
     try:
@@ -20,11 +24,28 @@ if len(sys.argv)==2:
     except Exception as e:
         sys.exit(str(e))
 else:
-    sys.exit("Error: invalid arguments number trytond_begin.py uri")
+    sys.exit("Usage: python " + os.path.basename(__file__) + " uri")
+
+dbname = os.environ['DB_NAME']
 
 #config = config.set_trytond('sqlite://')
 #config = config.set_trytond(config_file='/etc/tryton/trytond.conf', database='admon', user='admin')
 #config = config.set_xmlrpc('https://user:passwd@ip:port/databasename')
+
+def path_data_file(name):
+    return os.path.join(os.path.dirname(__file__), 'data', name)
+
+#https://stackoverflow.com/questions/845058/how-to-get-line-count-cheaply-in-python#1019572
+def _make_gen(reader):
+    b = reader(1024 * 1024)
+    while b:
+        yield b
+        b = reader(1024*1024)
+
+def rawgencount(filename):
+    with open(filename, 'rb') as f:
+        f_gen = _make_gen(f.read)
+        return sum( buf.count(b'\n') for buf in f_gen )
 
 Address = Model.get('party.address')
 Bank = Model.get('bank')
@@ -40,14 +61,20 @@ CondoPaymentGroup = Model.get('condo.payment.group')
 CondoUnit = Model.get('condo.unit')
 ContactMechanism = Model.get('party.contact_mechanism')
 Country = Model.get('country.country')
-Subdivision = Model.get('country.subdivision')
 Currency = Model.get('currency.currency')
+Group = Model.get('res.group')
+Holidays = Model.get('holidays.calendar')
+HolidaysEvent = Model.get('holidays.event')
+HolidaysEventRRule = Model.get('holidays.event.rrule')
 Identifier = Model.get('party.identifier')
 Lang = Model.get('ir.lang')
 Mandate = Model.get('condo.payment.sepa.mandate')
 Party = Model.get('party.party')
 PartyRelation = Model.get('party.relation.all')
 PartyRelationType = Model.get('party.relation.type')
+Recurrence = Model.get('recurrence')
+RecurrenceDate = Model.get('recurrence.date')
+RecurrenceEvent = Model.get('recurrence.event')
 Sequence = Model.get('ir.sequence')
 Subdivision = Model.get('country.subdivision')
 Translation = Model.get('ir.translation')
@@ -55,97 +82,24 @@ UnitFactor = Model.get('condo.unit-factor')
 User = Model.get('res.user')
 ViewSearch = Model.get('ir.ui.view_search')
 
-(es,) = Lang.find([('code', '=', 'es_ES')])
-
-def path_data_file(name):
-    return os.path.join(os.path.dirname(__file__), 'data', name)
-
-r = unicodecsv.reader(file(path_data_file('party_party.csv')), delimiter='\t', encoding='utf-8')
-rparty = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_address.csv')), delimiter='\t', encoding='utf-8')
-raddress = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_contact_mechanism.csv')), delimiter='\t', encoding='utf-8')
-rcontact = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('bank.csv')), delimiter='\t', encoding='utf-8')
-rbank = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('bank_account.csv')), delimiter='\t', encoding='utf-8')
-raccount = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('bank_account_number.csv')), delimiter='\t', encoding='utf-8')
-raccountnumber = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('bank_account-party_party.csv')), delimiter='\t', encoding='utf-8')
-raccountnumberparty = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_identifier.csv')), delimiter='\t', encoding='utf-8')
-ridentifier = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_category.csv')), delimiter='\t', encoding='utf-8')
-rcategory = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_category_rel.csv')), delimiter='\t', encoding='utf-8')
-rcategoryrel = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_relation.csv')), delimiter='\t', encoding='utf-8')
-rrelation = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('party_relation_type.csv')), delimiter='\t', encoding='utf-8')
-rreltype = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('company_company.csv')), delimiter='\t', encoding='utf-8')
-rcompany = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_factor.csv')), delimiter='\t', encoding='utf-8')
-rfactor = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_unit.csv')), delimiter='\t', encoding='utf-8')
-runit = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_unit-factor.csv')), delimiter='\t', encoding='utf-8')
-runitfactor = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_party.csv')), delimiter='\t', encoding='utf-8')
-rcondoparty = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_payment_sepa_mandate.csv')), delimiter='\t', encoding='utf-8')
-rmandate = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_payment.csv')), delimiter='\t', encoding='utf-8')
-rpayment = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_payment_group.csv')), delimiter='\t', encoding='utf-8')
-rpaymentgroup = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('condo_payment_pain.csv')), delimiter='\t', encoding='utf-8')
-rpain = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('country_country.csv')), delimiter='\t', encoding='utf-8')
-rcountry = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('country_subdivision.csv')), delimiter='\t', encoding='utf-8')
-rsubdivision = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('currency_currency.csv')), delimiter='\t', encoding='utf-8')
-rcurrency = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('ir_ui_view_search.csv')), delimiter='\t', encoding='utf-8')
-riruiview = map(tuple, r)
-
-r = unicodecsv.reader(file(path_data_file('ir_translation.csv')), delimiter='\t', encoding='utf-8')
-rtranslation = map(tuple, r)
-
+table = {}
+idaccount = {}
 idaddress = {}
-idcategor = {}
 idcompany = {}
-idcuentas = {}
 idmandate = {}
 idparties = {}
-idpreltyp = {}
-idpains   = {}
+idpains = {}
+idunits = {}
+idhlds = {}
+iduser = {}
+
+cache_currency = {}
+cache_country = {}
+cache_lang = {}
+cache_subdivision = {}
+
+ni = 0
+nt = 9
 
 party_seq, = Sequence.find([('name', '=', 'Party')])
 party_seq.number_next = 10001
@@ -154,581 +108,939 @@ party_seq.save()
 pgnull = '\N'
 
 def get_bankaccountnumber(old_id):
-    #COPY bank_account_number (id, create_uid, account, create_date, sequence, number, write_uid, write_date, number_compact, type) FROM stdin;
-    accountnumbers_iter = filter(lambda x:x[0]==old_id, raccountnumber)
-    new_accountnumber = accountnumber = None
+    if old_id==pgnull:
+        return None
 
-    if accountnumbers_iter and len(accountnumbers_iter):
-        accountnumber = accountnumbers_iter[0]
+    new_accountnumber = None
+    with open(path_data_file('bank_account_number.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+        accountnumber = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
 
     if accountnumber:
-        new_accountnumbers = BankAccountNumber.find([('number', '=', accountnumber[5])])
+        new_accountnumbers = BankAccountNumber.find([('number', '=', accountnumber['number'])])
         if new_accountnumbers and len(new_accountnumbers)==1:
             new_accountnumber = new_accountnumbers[0]
         else:
-            print('Error: bank account number not found number ' + accountnumber[5])
-    elif old_id!=pgnull:
-        print('Error: bank account number not found id ' + old_id)
+            logging.error('<function get_bankaccountnumber>: Bank account number not found: ' + accountnumber['number'])
     else:
-        print('Warn: bank account number not found')
+        logging.error('<function get_bankaccountnumber>: Bank account number not found id: ' + old_id)
 
     return new_accountnumber
 
 def get_company(old_id):
-    #COPY company_company (id, create_uid, create_date, parent, footer, header, write_uid, currency, write_date, timezone, party, "is_Condominium", sepa_creditor_identifier, creditor_business_code, company_sepa_batch_booking_selection, company_account_number, company_sepa_charge_bearer) FROM stdin;
-    if old_id not in idcompany:
-        print('Warn: company not found id: ' +  old_id)
-        return None
 
-    companies = Company.find([('id', '=', idcompany[old_id])])
+    company = Company(idcompany[old_id])
 
-    new_company = None
-    if companies and len(companies)==1:
-        new_company = companies[0]
-    else:
-        print('Error: company not found id ' + old_id)
+    if not company:
+        logging.error('<function get_company>: Company not found id: ' + old_id)
 
-    return new_company
+    return company
 
 def get_country(old_id):
-    #COPY country_country(id, create_uid, code, create_date, name, write_uid, write_date) FROM stdin;
-    country_iter = filter(lambda x:x[0]==old_id, rcountry)
-    new_country = country = None
+    new_country = None
 
-    if country_iter and len(country_iter):
-        country = country_iter[0]
+    if old_id in cache_country:
+        new_country = Country(cache_country[old_id])
+        return new_country
+
+    with open(path_data_file('country_country.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+        country = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
 
     if country:
-        new_countries = Country.find([('code', '=', country[2])])
+        new_countries = Country.find([('code', '=', country['code'])])
         if new_countries and len(new_countries)==1:
             new_country = new_countries[0]
+            cache_country[old_id] = new_country.id
         else:
-            print('Error: pais no encontrado code ' + country[2])
+            logging.error('<function get_country>: Country not found code: ' + country['code'])
     else:
-        print('Error: pais no encontrado id ' + old_id)
+        logging.error('<function get_country>: Country not found id: ' + old_id)
 
     return new_country
 
 def get_currency(old_id):
-    #COPY currency_currency (id, code, create_date, write_date, p_sep_by_space, write_uid, active, mon_grouping, create_uid, rounding, numeric_code, n_cs_precedes, n_sign_posn, p_cs_precedes, mon_decimal_point, symbol, mon_thousands_sep, negative_sign, n_sep_by_space, positive_sign, digits, name, p_sign_posn) FROM stdin;
-    currency_iter = filter(lambda x:x[0]==old_id, rcurrency)
+    new_currency = None
 
-    new_currency = currency = None
-    if currency_iter and len(currency_iter):
-        currency = currency_iter[0]
+    if old_id in cache_currency:
+        new_currency = Currency(cache_currency[old_id])
+        return new_currency
+
+    with open(path_data_file('currency_currency.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+        currency = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
 
     if currency:
-        new_currencies = Currency.find([('code', '=', currency[1])])
+        new_currencies = Currency.find([('code', '=', currency['code'])])
         if new_currencies and len(new_currencies)==1:
             new_currency = new_currencies[0]
+            cache_currency[old_id] = new_currency.id
         else:
-            print('Error: currency not found code ' + currency[1])
+            logging.error('<function get_currency>: Currency not found code: ' + currency['code'])
     else:
-        print('Error: currency not found id ' + old_id)
+        logging.error('<function get_currency>: Currency not found id: ' + old_id)
 
     return new_currency
 
+def get_lang(old_id):
+    new_lang = None
+
+    if old_id in cache_lang:
+        new_lang = Lang(cache_lang[old_id])
+        return new_lang
+
+    with open(path_data_file('ir_lang.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+        lang = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+
+    if lang:
+        new_langs = Lang.find([('code', '=', lang['code'])])
+        if new_langs and len(new_langs)==1:
+            new_lang = new_langs[0]
+            cache_lang[old_id] = new_lang.id
+        else:
+            logging.error('<function get_lang>: Lang not found code: ' + lang['code'])
+    else:
+        logging.error('<function get_lang>: Lang not found id: ' + old_id)
+
+    return new_lang
+
 def get_party(old_id):
-    #COPY party_party (id, code, create_date, write_uid, create_uid, write_date, active, name) FROM stdin;
-    if old_id not in idparties:
-        print('Warn: party not found id: ' + old_id)
-        return None
 
-    active_parties = Party.find([('id', '=', idparties[old_id])])
+    party = Party(idparties[old_id])
 
-    new_party = None
-    if (active_parties is None) or len(active_parties)==0:
-        inactive_parties = Party.find([('id', '=', idparties[old_id]), ('active', '=', False)])
-        if inactive_parties and len(inactive_parties)==1:
-            new_party = inactive_parties[0]
-        else:
-            print('Error: party not found id ' + old_id)
+    if not party:
+        logging.error('<function get_party>: Party not found id: ' + old_id)
+
+    return party
+
+def get_subdivision(old_id, country):
+
+    if old_id in cache_subdivision:
+        new_subdivision = Subdivision(cache_subdivision[old_id])
+        return new_subdivision
+
+    with open(path_data_file('country_subdivision.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+        subdivision = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+
+    if subdivision and country:
+        new_subdivision, = Subdivision.find([
+                                             ('code', '=', subdivision['code']),
+                                             ('country', '=', country.id),
+                                            ])
+
+    if not new_subdivision:
+        logging.error('<function get_subdivision>: Subdivision not found id: ' + old_id)
     else:
-        new_party = active_parties[0]
+        cache_subdivision[old_id] = new_subdivision.id
 
-    return new_party
+    return new_subdivision
 
-for row in sorted(rcategory, key=lambda field: field[0]):
-    padre = None
-    if row[4]!=pgnull:
-        if idcategor[row[4]]:
-            padre, = Category.find([('id', '=', idcategor[row[4]])])
+with open(path_data_file('res_group.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    table['res_group'] = list(csvreader)
+
+with open(path_data_file('res_user.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    for row in csvreader:
+        users = User.find([
+                           ('active', '!=', ''),
+                           ('name', '=', row['name']),
+                           ('login', '=', row['login']),
+                          ])
+        if not users:
+            record = User(
+                          active = False if (row['active']=='f' or row['active']==0) else True,
+                          #company
+                          email = row['email'] if row['email']!=pgnull else None,
+                          language = get_lang(row['language']),
+                          login = row['login'] if row['login']!=pgnull else None,
+#                          menu = row['menu'] if row['menu']!=pgnull else None,
+                          name = row['name'] if row['name']!=pgnull else None,
+                          #employee
+                         )
+
+            with open(path_data_file('res_user-res_group.csv'), 'r') as _csvfile:
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+                for _row in filter(lambda f:f['user']==row['id'], _csvreader):
+                    r = (filter(lambda f:f['id']==_row['group'], table['res_group'])[0:1]+[None])[0]
+
+                    groups = Group.find ([
+                                          ('name', '=', r['name']),
+                                         ])
+                    if groups and len(groups)==1:
+                        record.groups.append(groups[0])
+                    else:
+                        logging.error('<res_user-res_group>: Group not found id: ' + row['id'])
+
+            record.save()
+
+            #copy password_hash of this user
+            with Transaction().start(dbname, 0) as transaction:
+                cursor = transaction.cursor
+                user = Table('res_user')
+                cursor.execute(*user.update(
+                                            columns = [user.password_hash],
+                                            values = [row['password_hash']],
+                                            where=user.id == record.id))
+                cursor.commit()
         else:
-            print("Error: Verificar padre de la categoria " + row[0])
+            record = users[0]
 
-    category = Category.find([('name', '=', row[3])])
+        iduser[row['id']] = record.id
+
+with open(path_data_file('condo_factor.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    table['condo_factor'] = list(csvreader)
+
+with open(path_data_file('party_category.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    table['party_category'] = list(csvreader)
+
+with open(path_data_file('party_relation_type.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    table['party_relation_type'] = list(csvreader)
+
+with open(path_data_file('ir_ui_view_search.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    for row in csvreader:
+        user = User(iduser[row['user']])
+        record = ViewSearch(
+                            domain = row['domain'].decode('unicode_escape'),
+                            model = row['model'],
+                            name = row['name'],
+                            user = user,
+                           )
+        record.save()
+
+for row in sorted(table['party_category'], key=lambda f: f['id']):
+    parent = None
+    if row['parent']!=pgnull:
+        r = (filter(lambda f:f['id']==row['parent'], table['party_category'])[0:1]+[None])[0]
+
+        if r:
+            parent = Category(r['_new_id'])
+        else:
+            logging.error('<party_category>: Category not found id: ' + row['id'])
+
+    category = Category.find([
+                              ('name', '=', row['name']),
+                              ('active', '!=', ''),
+                             ])
     if (category is None) or len(category)==0:
-        category = Category.find([('name', '=', row[3]), ('active', '=', False)])
-        if (category is None) or len(category)==0:
-            #COPY party_category (id, create_uid, create_date, name, parent, write_uid, write_date, active) FROM stdin;
-            categoria = Category(name = row[3],
-                                 parent = padre,
-                                 active = False if (row[7]=='f' or row[7]==0) else True)
-            categoria.save()
-            idcategor[row[0]] = categoria.id
-        elif category and len(category)==1:
-            idcategor[row[0]] = category[0].id
+        record = Category(
+                          active = False if (row['active']=='f' or row['active']==0) else True,
+                          name = row['name'],
+                          parent = parent,
+                         )
+        record.save()
+        row['_new_id'] = record.id
 
-    elif category and len(category)==1:
-        idcategor[row[0]] = category[0].id
+    elif len(category)==1:
+        row['_new_id'] = category[0].id
+    else:
+        logging.error('<party_category>: Category not found with name: ' + row['name'])
 
-#TODO category translations
+for row in sorted(table['party_relation_type'], key=lambda f: f['id']):
 
-for row in sorted(rreltype, key=lambda field: field[0]):
-    reverse = None
-    reltype = PartyRelationType(name = row[6])
-    reltype.save()
-    idpreltyp[row[0]] = reltype.id
+    record = PartyRelationType(
+                               name = row['name'],
+                              )
+    record.save()
+    row['_new_id'] = record.id
 
-    translations = filter(lambda x:x[2]==row[6], rtranslation)
-    #COPY ir_translation (id, lang, src, src_md5, name, res_id, value, type, module, fuzzy, create_uid, create_date, overriding_module, write_uid, write_date) FROM stdin;
-    for translation in translations:
-        traduccion = Translation.find([
-                                        ('src', '=', translation[2] if translation[2]!=pgnull else None),
-                                        ('name', '=', translation[4] if translation[4]!=pgnull else None),
-                                        ('res_id', '=', translation[5] if translation[5]!=pgnull else None),
-                                        ('type', '=', translation[7] if translation[7]!=pgnull else None),
-                                        ('module', '=', translation[8] if translation[8]!=pgnull else None)
+    with open(path_data_file('ir_translation.csv'), 'r') as _csvfile:
+        _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+        for _row in filter(lambda f:f['name']=='party.relation.type,name' and f['src']==row['name'], _csvreader):
+
+            translations = Translation.find([
+                                             ('name', '=', _row['name'] if _row['name']!=pgnull else None),
+                                             ('res_id', '=', _row['res_id'] if _row['res_id']!=pgnull else None),
+                                             ('src', '=', _row['src'] if _row['src']!=pgnull else None),
+                                             ('type', '=', _row['type'] if _row['type']!=pgnull else None),
+                                            ])
+            for r in translations:
+                if r.lang == _row['lang']:
+                    break
+
+            if not r or r.lang != _row['lang']:
+                _record = Translation(
+                                      lang = _row['lang'],
+                                      module = _row['module'] if _row['module']!=pgnull else None,
+                                      name = _row['name'] if _row['name']!=pgnull else None,
+                                      res_id = int(_row['res_id']) if _row['res_id']!=pgnull else None,
+                                      src = _row['src'],
+                                      type = _row['type'] if _row['type']!=pgnull else None,
+                                      value = _row['value'],
+                                     )
+                _record.save()
+
+for row in table['party_relation_type']:
+    if row['reverse']!=pgnull:
+
+        r = (filter(lambda f:f['id']==row['reverse'], table['party_relation_type'])[0:1]+[None])[0]
+        reverse = PartyRelationType(r['_new_id'])
+
+        record = PartyRelationType(row['_new_id'])
+        record.reverse = reverse
+        record.save()
+
+with open(path_data_file('bank_account.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('bank_account', ni, nt), total=rawgencount(path_data_file('bank_account.csv'))-1):
+        bank, currency = None, get_currency(row['currency'])
+
+        with open(path_data_file('bank.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            _row = (filter(lambda f:f['id']==row['bank'], _csvreader)[0:1]+[None])[0]
+
+            if _row:
+                country = get_country(_row['country'])
+                if country:
+                    banks = Bank.find([
+                                       ('code', '=', _row['code']),
+                                       ('country', '=', country.id),
                                       ])
+            else:
+                logging.error('<bank>: Bank not found id: ' + row['bank'])
 
-        if traduccion and len(traduccion):
-            traduccion[0].lang = translation[1]
-            traduccion[0].value = translation[6]
-            traduccion[0].save()
-        else:
-            #TODO?
-            traduccion = Translation(lang = translation[1],
-                                     src = translation[2],
-                                     name = translation[4] if translation[4]!=pgnull else None,
-                                     res_id = translation[5] if translation[5]!=pgnull else None,
-                                     value = translation[6],
-                                     type = translation[7] if translation[7]!=pgnull else None,
-                                     module = translation[8] if translation[8]!=pgnull else None)
-            traduccion.save()
+            if banks and len(banks)==1:
+                bank = banks[0]
+            else:
+                logging.error('<bank>: Bank not found code: ' + _row['code'])
 
+        record = BankAccount(
+                             active = False if (row['active']=='f' or row['active']==0) else True,
+                             bank = bank,
+                             currency = currency,
+                            )
 
-for row in rreltype:
-    if row[3]!=pgnull:
-        reverse, = PartyRelationType.find([('id', '=', idpreltyp[row[3]])])
-        reltype, = PartyRelationType.find([('id', '=', idpreltyp[row[0]])])
-        reltype.reverse = reverse
-        reltype.save()
+        with open(path_data_file('bank_account_number.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
 
-for row in raccount:
+            for _row in filter(lambda f:f['account']==row['id'], _csvreader):
+                record.numbers.new(
+                                   number = _row['number'],
+                                   sequence = int(_row['sequence']) if _row['sequence']!=pgnull else None,
+                                   type = _row['type'],
+                                  )
 
-    moneda = get_currency(row[4])
+                if (bank.code[0:2]=='ES' and _row['number'][5:9] != bank.code[2:6]):
+                     logging.warning('<bank_account_number>: ' + _row['number'] + ' does not match bank ' + bank.code)
 
-    bank_iter = filter(lambda x:x[0]==row[7], rbank)
-
-    bank = None
-    if bank_iter and len(bank_iter):
-        bank = bank_iter[0]
-        pais = get_country(bank[8])
-        if pais:
-            bancos = Bank.find([('code', '=', bank[7]), ('country', '=', pais.id)])
-    else:
-        print('Error: banco no encontrado id ' + row[7])
-
-    if bancos and len(bancos)==1:
-        banco = bancos[0]
-    else:
-        banco = None
-        print('Error: banco no encontrado')
-
-    #COPY bank_account (id, create_uid, create_date, write_uid, currency, write_date, active, bank) FROM stdin;
-    account = BankAccount(currency = moneda,
-                          active = False if (row[6]=='f' or row[6]==0) else True,
-                          bank = banco)
-    accountnumbers = filter(lambda x:x[2]==row[0], raccountnumber)
-    #COPY bank_account_number (id, create_uid, account, create_date, sequence, number, write_uid, write_date, number_compact, type) FROM stdin;
-    for accountnumber in accountnumbers:
-        account.numbers.new(type = accountnumber[9],
-                            sequence = int(accountnumber[4]) if accountnumber[4]!=pgnull else None,
-                            number = accountnumber[5])
-
-        if (banco.code[0:2]=='ES' and accountnumber[5][5:9] != banco.code[2:6]):
-             print('Alerta: cuenta ' + accountnumber[5] + ' no coincide con banco ' + banco.code)
-
-    account.save()
-    idcuentas[row[0]] = account.id
+            record.save()
+            idaccount[row['id']] = record.id
 
 #Check orphan account_numbers
-raccountnumberparty_account = [item[2] for item in raccountnumberparty]
-orphan = [item for item in raccountnumber if item[2] not in raccountnumberparty_account]
-for item in orphan:
-    print('Error: cuenta numero ' + item[5] + ' sin propietario')
+with open(path_data_file('bank_account-party_party.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-for row in sorted(rparty, key=lambda field:(False if field[0] in [r[10] for r in rcompany] else True, field[7])):
+    accounts = [f['account'] for f in csvreader]
 
-    #bypass warning on duplicate party's name when is a bank
-    categories = [c[1] for c in filter(lambda x:x[6]==row[0], rcategoryrel)]
-    if u'bank' in [category[3] for category in rcategory if category[0] in categories ]:
-        continue
+with open(path_data_file('bank_account_number.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-#TODO lang
-#        if row[]!=pgnull:
-#            lenguaje, = Lang.find([('id', '=', 'es_ES')])
+    orphans = [f['number'] for f in csvreader if f['account'] not in accounts]
+    for row in orphans:
+        logging.warning('<bank_account_number>: Bank Account Number ' + row + ' without owner')
 
-    #COPY party_party (id, code, create_date, write_uid, create_uid, write_date, active, name) FROM stdin;
-    party = Party(name = row[7],
-                  active = False if (row[6]=='f' or row[6]==0) else True,
-                  lang = es)
+skip_categories = [u'bank']
+skip = [f['id'] for f in table['party_category'] if f['name'] in skip_categories ]
 
-    addresses_iter = filter(lambda x:x[14]==row[0], raddress)
-    numaddresses = len(addresses_iter)
-    addresses = filter(lambda x:sum(1 for a in [x[i] for i in [1, 3, 4, 8, 10, 11]] if a not in [pgnull, u''])!=0, addresses_iter)
-    #COPY party_address (id, city, create_date, name, zip, create_uid, country, sequence, subdivision, write_uid, streetbis, street, write_date, active, party) FROM stdin;
+#get id of lang field property in module party
+with open(path_data_file('ir_model_field.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-    i = 0
-    for address in addresses:
-        provincia = None
+    r = (filter(lambda f:f['relation']=='ir.lang' and f['module']=='party', csvreader)[0:1]+[None])[0]
+    flang = r['id']
 
-        pais = get_country(address[6])
+with open(path_data_file('party_party.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-        if address[8]!=pgnull:
-            # COPY country_subdivision (id, create_uid, code, create_date, name, parent, country, write_uid, write_date, type) FROM stdin;
-            subdivision_iter = filter(lambda x:x[0]==address[8], rsubdivision)
-            subdivision = None
-            if subdivision_iter and len(subdivision_iter)==1:
-                subdivision = subdivision_iter[0]
+    ni +=1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_party', ni, nt), total=rawgencount(path_data_file('party_party.csv'))-1):
 
-            if subdivision and subdivision[6]!=pgnull:
-                pais = get_country(subdivision[6])
-                if pais:
-                    provincias = Subdivision.find([('code', '=', subdivision[2]),
-                                                   ('country', '=', pais.id),])
+        #skip banks
+        with open(path_data_file('party_category_rel.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            if [c['category'] for c in filter(lambda f:f['party']==row['id'], _csvreader) if c['category'] in skip]:
+                continue
+
+        with open(path_data_file('ir_property.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['res']=='{0},{1}'.format('party.party', row['id']) and f['field']==flang, _csvreader):
+                lang = get_lang(_row['value'].replace('ir.lang,', ''))
+
+        record = Party(
+                       active = False if (row['active']=='f' or row['active']==0) else True,
+                       lang = lang,
+                       name = row['name'],
+                      )
+
+        with open(path_data_file('party_address.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            numaddresses, i = 0, 0
+            for _row in filter(lambda f:f['party']==row['id'], _csvreader):
+
+                numaddresses += 1
+                if sum(1 for a in [_row[b] for b in ['name', 'street', 'streetbis', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
+                    continue
+
+                subdivision, country = None, None
+
+                country = get_country(_row['country'])
+
+                if _row['subdivision']!=pgnull:
+                    subdivision = get_subdivision(_row['subdivision'], country)
+
+                if i!=0:
+                    _record = Address(
+                                      active = True,
+                                      city = _row['city'] if _row['city']!=pgnull else None,
+                                      country = country,
+                                      name = _row['name'] if _row['name']!=pgnull else None,
+                                      sequence = int(_row['sequence']) if _row['sequence']!=pgnull else None,
+                                      street = _row['street'] if _row['street']!=pgnull else None,
+                                      streetbis = _row['streetbis'] if _row['streetbis']!=pgnull else None,
+                                      subdivision = subdivision,
+                                      zip = _row['zip'] if _row['zip']!=pgnull else None,
+                                     )
+                    record.addresses.append(_record)
+
                 else:
-                    print('Error country not found id ' + subdivision[6])
+                    record.addresses[0].active = True
+                    record.addresses[0].city = _row['city'] if _row['city']!=pgnull else None
+                    record.addresses[0].country = country
+                    record.addresses[0].name = _row['name'] if _row['name']!=pgnull else None
+                    record.addresses[0].street = _row['street'] if _row['street']!=pgnull else None
+                    record.addresses[0].streetbis = _row['streetbis'] if _row['streetbis']!=pgnull else None
+                    record.addresses[0].subdivision = subdivision
+                    record.addresses[0].zip = _row['zip'] if _row['zip']!=pgnull else None
 
-                if provincias and len(provincias)==1:
-                    provincia = provincias[0]
+                i += 1
+
+        num = numaddresses - i
+        if num!=0 and i!=0:
+            logging.info('<party_address>: {0} empty addresses not created for party name: '.format(num) + row['name'])
+
+        with open(path_data_file('party_contact_mechanism.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['party']==row['id'], _csvreader):
+                _record = ContactMechanism(
+                                           active = False if (_row['active']=='f' or _row['active']==0) else True,
+                                           comment = _row['comment'].replace('\\r\\n', '\n').replace('\\n', '\n') if _row['comment']!=pgnull else None,
+                                           sequence = int(_row['sequence']) if _row['sequence']!=pgnull else None,
+                                           type = _row['type'] if _row['type']!=pgnull else None,
+                                           value = _row['value'] if _row['value']!=pgnull else None,
+                                          )
+                record.contact_mechanisms.append(_record)
+
+        seen = set()
+
+        with open(path_data_file('bank_account-party_party.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['owner']==row['id'], _csvreader):
+                if _row['account'] in seen:
+                    logging.error('<bank_account-party_party>: user already defined this bank account: ' + _row['account'])
+                    continue
                 else:
-                    provincia = None
-                    print('Error: subdivision not found')
+                    seen.add(_row['account'])
 
-            elif subdivision is not None:
-                provincias = Subdivision.find([('code', '=', subdivision[2])])
-                if provincias and len(provincias)==1:
-                    provincia = provincias[0]
+                account = BankAccount(idaccount[_row['account']])
+
+                if account:
+                    record.bank_accounts.append(account)
                 else:
-                    provincia = None
-                    print('Error: subdivision not found')
-            else:
-                print('Error: subdivision not found with id' + address[8])
+                    logging.errort('<bank_account-party_party>: Bank Account not found id: ' + _row['account'])
 
-        if i!=0:
-            direccion = Address(name = address[3] if address[3]!=pgnull else None,
-                                street = address[11] if address[11]!=pgnull else None,
-                                streetbis = address[10] if address[10]!=pgnull else None,
-                                zip = address[4] if address[4]!=pgnull else None,
-                                city = address[1] if address[1]!=pgnull else None,
-                                subdivision = provincia,
-                                country = pais,
-                                sequence = int(address[7]) if address[7]!=pgnull else None,
-                                active = True)
-            party.addresses.append(direccion)
+        with open(path_data_file('party_identifier.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
 
-        else:
-            party.addresses[0].name = address[3] if address[3]!=pgnull else None
-            party.addresses[0].street = address[11] if address[11]!=pgnull else None
-            party.addresses[0].zip = address[4] if address[4]!=pgnull else None
-            party.addresses[0].city = address[1] if address[1]!=pgnull else None
-            party.addresses[0].subdivision = provincia
-            party.addresses[0].country = pais
-            party.addresses[0].active = True
+            for _row in filter(lambda f:f['party']==row['id'], _csvreader):
+                _record = Identifier(
+                                     code = _row['code'] if _row['code']!=pgnull else None,
+                                     type = _row['type'] if _row['type']!=pgnull else None,
+                                    )
+                record.identifiers.append(_record)
 
-        i += 1
+        with open(path_data_file('party_category_rel.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
 
-    num = numaddresses - i
-    if num!=0 and i!=0:
-        print("Aviso: {0} direccion(es) sin datos no fueron recreadas en propietario: ".format(num) + row[7])
-
-    contacts = filter(lambda x:x[9]==row[0], rcontact)
-    for contact in contacts:
-        #COPY party_contact_mechanism (id, comment, create_uid, create_date, sequence, value, write_uid, write_date, active, party, type) FROM stdin;
-        contacto = ContactMechanism(comment = contact[1].replace('\\r\\n', '\n').replace('\\n', '\n') if contact[1]!=pgnull else None,
-                                    value = contact[5] if contact[5]!=pgnull else None,
-                                    type = contact[10] if contact[10]!=pgnull else None,
-                                    sequence = int(contact[4]) if contact[4]!=pgnull else None,
-                                    active = False if (contact[8]=='f' or contact[8]==0) else True)
-        party.contact_mechanisms.append(contacto)
-
-    #COPY "bank_account-party_party" (id, create_uid, account, create_date, write_uid, write_date, owner)  FROM stdin;
-    accounts = filter(lambda x:x[6]==row[0], raccountnumberparty)
-    seen = set()
-    for account in accounts:
-        if account[2] in seen:
-            print("Error: Cuenta y propietarios repetidos " + account[2])
-            continue
-        else:
-            seen.add(account[2])
-
-        cuenta = None
-        if account[2]!=pgnull and idcuentas[account[2]]:
-            cuenta = BankAccount.find([('id', '=', idcuentas[account[2]])])
-            if cuenta and len(cuenta)==1:
-                party.bank_accounts.append(cuenta[0])
-            elif (cuenta is None) or len(cuenta)==0:
-                cuenta = BankAccount.find([('id', '=', idcuentas[account[2]]), ('active', '=', False)])
-                if cuenta and len(cuenta)==1:
-                    party.bank_accounts.append(cuenta[0])
+            for _row in filter(lambda f:f['party']==row['id'], _csvreader):
+                r = (filter(lambda f:f['id']==_row['category'], table['party_category'])[0:1]+[None])[0]
+                if r:
+                    category = Category(r['_new_id'])
+                    record.categories.append(category)
                 else:
-                    print("Error: Cuenta sin propietario " + account[2])
-        else:
-            print("Error: Verificar cuenta bancaria " + account[2])
+                    logging.error('<party_category_rel>: Category not found id: ' + _row['category'])
 
-    identifiers = filter(lambda x:x[6]==row[0], ridentifier)
-    for identifier in identifiers:
-        #COPY party_identifier (id, create_uid, code, create_date, write_uid, write_date, party, type) FROM stdin;
-        identificacion = Identifier(code = identifier[2] if identifier[2]!=pgnull else None,
-                                    type = identifier[7] if identifier[7]!=pgnull else None)
-        party.identifiers.append(identificacion)
+        record.save()
+        idparties[row['id']] = record.id
 
-    categories = filter(lambda x:x[6]==row[0], rcategoryrel)
-    for category in categories:
-        if category[1] in idcategor:
-            categoria, = Category.find([('id', '=', idcategor[category[1]])])
-            party.categories.append(categoria)
-        else:
-            print('Error: category not found id ' + category[1])
+        _save, i = False, 0
 
-    party.save()
-    idparties[row[0]] = party.id
+        with open(path_data_file('party_address.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
 
-    _save = False
+            for _row in filter(lambda f:f['party']==row['id'], _csvreader):
+                if sum(1 for a in [_row[b] for b in ['name', 'street', 'streetbis', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
+                    continue
+                if len(record.addresses) > i:
+                    idaddress[_row['id']] = record.addresses[i].id
+                    if (_row['active']=='f' or _row['active']==0):
+                        record.addresses[i].active = False
+                        _save = True
+                i += 1
 
-    i = 0
-    for address in addresses:
-        if len(party.addresses) > i:
-            idaddress[address[0]] = party.addresses[i].id
-            if (address[13]=='f' or address[13]==0):
-                party.addresses[i].active = False
-                _save = True
-        i += 1
+        if i==0 and len(record.addresses):
+            logging.warning('<party_address>: Deleted {0} empty addresses of owner name: '.format(len(record.addresses)) + row['name'])
+            for address in record.addresses:
+                address.delete()
 
-    if i==0 and len(party.addresses):
-        print("Aviso: borradas {0} direcciones de propietario sin direccion (activa): ".format(len(party.addresses)) + row[7])
-        for address in party.addresses:
-            address.delete()
+        if _save:
+            record.save()
 
-    if _save:
-        party.save()
+with open(path_data_file('party_relation.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
+    for row in csvreader:
+        to = get_party(row['to'])
+        from_ = get_party(row['from_'])
 
-for row in rrelation:
-    tercero_to = get_party(row[4])
-    tercero_from = get_party(row[6])
+        r = (filter(lambda f:f['id']==row['type'], table['party_relation_type'])[0:1]+[None])[0]
+        type_ = PartyRelationType(r['_new_id'])
 
-    tipo, = PartyRelationType.find([('id', '=', idpreltyp[row[7]])])
-
-    relation = PartyRelation(to = tercero_to,
-                             from_ = tercero_from,
-                             type = tipo)
-    relation.save()
+        record = PartyRelation(
+                               from_ = from_,
+                               to = to,
+                               type = type_,
+                              )
+        record.save()
 
 #note: package pytz must be installed on server (otherwise comment out timezone field attribution)
-for row in sorted(rcompany, key=lambda field: filter(lambda x:x[0]==field[10], rparty)[0][7]):
-    moneda = get_currency(row[7])
-    tercero = get_party(row[10])
-    accountnumber = get_bankaccountnumber(row[15])
+with open(path_data_file('company_company.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-    if tercero:
-        compania = Company(parent = None,
-                           footer = row[4] if row[4]!=pgnull else '',
-                           header = row[5] if row[5]!=pgnull else '',
-                           currency = moneda,
-                           timezone = row[9] if row[9]!=pgnull else None,
-                           party = tercero,
-                           is_Condominium = False if (row[11]=='f' or row[11]==0) else True,
-                           creditor_business_code = row[13] if row[13]!=pgnull else None,
-                           sepa_creditor_identifier = row[12] if row[12]!=pgnull else None,
-                           company_sepa_batch_booking_selection = row[14] if row[14]!=pgnull else None,
-                           company_account_number = accountnumber,
-                           company_sepa_charge_bearer = row[16] if row[16]!=pgnull else None,
-                           )
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('company_company', ni, nt), total=rawgencount(path_data_file('company_company.csv'))-1):
 
-        factors = filter(lambda x:x[7]==row[0], rfactor)
-        for factor in factors:
-            #COPY condo_factor (id, create_uid, create_date, name, write_uid, notes, write_date, company) FROM stdin;
-            coeficiente = CondoFactor(name = factor[3] if factor[3]!=pgnull else None,
-                                      notes = factor[5] if factor[5]!=pgnull else None,
-                                      )
-            compania.condo_factors.append(coeficiente)
+        currency = get_currency(row['currency'])
+        party = get_party(row['party'])
+        accountnumber = get_bankaccountnumber(row['company_account_number'])
 
-        units = filter(lambda x:x[4]==row[0], runit)
-        for unit in sorted(units, key=lambda name: name[3]):
-            #COPY condo_unit (id, create_uid, create_date, name, company, write_uid, write_date) FROM stdin;
-            fraccion = CondoUnit(name = unit[3] if unit[3]!=pgnull else None)
-            compania.condo_units.append(fraccion)
+        if party:
+            record = Company(
+                             company_account_number = accountnumber,
+                             company_sepa_batch_booking_selection = row['company_sepa_batch_booking_selection'] if row['company_sepa_batch_booking_selection']!=pgnull else None,
+                             company_sepa_charge_bearer = row['company_sepa_charge_bearer'] if row['company_sepa_charge_bearer']!=pgnull else None,
+                             creditor_business_code = row['creditor_business_code'] if row['creditor_business_code']!=pgnull else None,
+                             currency = currency,
+                             footer = row['footer'] if row['footer']!=pgnull else '',
+                             header = row['header'] if row['header']!=pgnull else '',
+                             is_Condominium = False if (row['is_Condominium']=='f' or row['is_Condominium']==0) else True,
+                             parent = None,
+                             party = party,
+                             sepa_creditor_identifier = row['sepa_creditor_identifier'] if row['sepa_creditor_identifier']!=pgnull else None,
+                             timezone = row['timezone'] if row['timezone']!=pgnull else None,
+                            )
 
-        compania.save()
-        idcompany[row[0]] = compania.id
+            for _row in filter(lambda f:f['company']==row['id'], table['condo_factor']):
+                _record = CondoFactor(name = _row['name'] if _row['name']!=pgnull else None,
+                                      notes = _row['notes'] if _row['notes']!=pgnull else None,
+                                     )
+                record.condo_factors.append(_record)
 
-    else:
-        print("Error: No se encuentra empresa " + row[0])
+            with open(path_data_file('condo_unit.csv'), 'r') as _csvfile:
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+                for _row in sorted(filter(lambda f:f['company']==row['id'], _csvreader), key=lambda f: f['name']):
+                    _record = CondoUnit(
+                                        name = _row['name'] if _row['name']!=pgnull else None,
+                                       )
+                    record.condo_units.append(_record)
+
+            record.save()
+            idcompany[row['id']] = record.id
+
+        else:
+            logging.error('<company_company>: Company not found with id: ' + row['id'])
 
 #set parent of companies
-for row in rcompany:
-    compania = get_company(row[0])
+with open(path_data_file('company_company.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-    if row[3]!=pgnull:
-        if idcompany[row[3]]:
-            padre = get_company(row[3])
-            compania.parent = padre
-            compania.save()
-        else:
-            print("Error: Verificar padre de la empresa " + row[0])
+    for row in csvreader:
+        record = get_company(row['id'])
 
-for row in rmandate:
-    comunidad = get_company(row[3])
-    tercero = get_party(row[10])
-    accountnumber = get_bankaccountnumber(row[7])
-
-    #COPY condo_payment_sepa_mandate (id, create_uid, create_date, company, write_uid, state, identification, account_number, write_date, signature_date, party, scheme, type) FROM stdin;
-    condomandate = Mandate(company = comunidad,
-                           signature_date = datetime.strptime(row[9],"%Y-%m-%d") if row[9]!=pgnull else None,
-                           state = row[5] if row[5]!=pgnull else None,
-                           identification = row[6] if row[6]!=pgnull else None,
-                           account_number = accountnumber,
-                           party = tercero,
-                           scheme = row[11] if row[11]!=pgnull else None,
-                           type = row[12] if row[12]!=pgnull else None)
-    if accountnumber.account.owners and len(accountnumber.account.owners):
-        condomandate.save()
-    else:
-        print("Error: numero de cuenta " + accountnumber.number \
-            + " sin propietario y utilizada en mandato " + row[6] if row[6]!=pgnull else None \
-            + " con estado " + row[5] if row[5]!=pgnull else None)
-    idmandate[row[0]] = condomandate.id
-
-for row in runit:
-
-    fraccion = CondoUnit.find([('name', '=', row[3]), ('company','=', idcompany[row[4]])])
-
-    if fraccion and len(fraccion)==1:
-        unitfactors = filter(lambda x:x[7]==row[0], runitfactor)
-        for unitfactor in sorted(unitfactors, key=lambda id: id[6]):
-            condofactor, = filter(lambda x:x[0]==unitfactor[6], rfactor)
-            comunidad = get_company(condofactor[7])
-            coeficiente = CondoFactor.find([('name','=', condofactor[3]),('company','=', idcompany[condofactor[7]])])
-            if coeficiente and len(coeficiente)==1:
-                coeffrac = UnitFactor(value = Decimal(unitfactor[3]) if unitfactor!=pgnull else None,
-                                      factor = coeficiente[0])
-                fraccion[0].factors.append(coeffrac)
+        if row['parent']!=pgnull:
+            if idcompany[row['parent']]:
+                parent = get_company(row['parent'])
+                record.parent = parent
+                record.save()
             else:
-                print("Error: Coeficiente no encontrado para la fraccion " + row[0])
+                logging.error('<company_company>: Company not found id: ' + row['id'])
 
-        condoparties = filter(lambda x:x[8]==row[0], rcondoparty)
-        #COPY condo_party (id, create_uid, create_date, write_uid, role, write_date, active, party, unit, sepa_mandate, address, mail) FROM stdin;
-        for condoparty in condoparties:
-            direccion = None
+with open(path_data_file('condo_payment_sepa_mandate.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-            tercero = get_party(condoparty[7])
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_sepa_mandate', ni, nt), total=rawgencount(path_data_file('condo_payment_sepa_mandate.csv'))-1):
+        company = get_company(row['company'])
+        party = get_party(row['party'])
+        accountnumber = get_bankaccountnumber(row['account_number'])
 
-            if condoparty[10]!=pgnull:
-                direccion = direcciones = None
-                if condoparty[10] in idaddress:
-                    direcciones = Address.find([('id', '=', idaddress[condoparty[10]])])
-                    if (direcciones is None) or len(direcciones)==0:
-                        direcciones = Address.find([('id', '=', idaddress[condoparty[10]]), ('active', '=', False)])
-                if not direcciones or len(direcciones)!=1:
-                    print("Error: direccion de correspondencia en propietario " + str(idparties[condoparty[7]]) + ' ' + tercero.name)
-                else:
-                    direccion = direcciones[0]
-
-            mandato = None
-            if condoparty[9]!=pgnull:
-                mandato, = Mandate.find([('id', '=', idmandate[condoparty[9]])])
-
-            party = CondoParty(role = condoparty[4] if condoparty[4]!=pgnull else None,
-                               party = tercero,
-                               address = direccion if condoparty[10]!=pgnull else None,
-                               mail = False if (condoparty[11]=='f' or condoparty[11]==0) else True,
-                               active = False if (condoparty[6]=='f' or condoparty[6]==0) else True,
-                               sepa_mandate = mandato)
-            fraccion[0].parties.append(party)
-
-        fraccion[0].save()
-    else:
-        print("Error: No se encuentra fraccion " + row[0])
-
-for row in sorted(rpain, key=lambda field:(field[5], idcompany[field[6]])):
-    comunidad = get_company(row[6])
-    #COPY condo_payment_pain (id, create_uid, sepa_receivable_flavor, create_date, write_date, reference, company, write_uid, state, message) FROM stdin;
-    pain = CondoPain(sepa_receivable_flavor = row[2] if row[2]!=pgnull else None,
-                     reference = row[5] if row[5]!=pgnull else None,
-                     company = comunidad,
-                     message = row[9].replace('\\r\\n', '\n').replace('\\n', '\n') if row[9]!=pgnull else None,
-                     state = row[8] if row[8]!=pgnull else None)
-    pain.save()
-    idpains[row[0]] = pain.id
-
-for row in sorted(rpaymentgroup, key=lambda field: (field[4], idcompany[field[5]])):
-
-    #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, pain, message) FROM stdin;
-    comunidad = get_company(row[5])
-
-    fact = None
-    if row[11]!=pgnull: #case condo_payment_group is included in any pain message
-        pain = CondoPain.find([('id', '=', idpains[row[11]])])
-        if pain and len(pain)==1:
-            fact = pain[0]
+        record = Mandate(
+                         account_number = accountnumber,
+                         company = company,
+                         identification = row['identification'] if row['identification']!=pgnull else None,
+                         party = party,
+                         scheme = row['scheme'] if row['scheme']!=pgnull else None,
+                         signature_date = datetime.strptime(row['signature_date'],"%Y-%m-%d") if row['signature_date']!=pgnull else None,
+                         state = row['state'] if row['state']!=pgnull else None,
+                         type = row['type'] if row['type']!=pgnull else None,
+                        )
+        if accountnumber.account.owners and len(accountnumber.account.owners):
+            record.save()
         else:
-            print("Error: Facturacion referencia " + row[4] + " de comunidad " + comunidad.party.name)
+            logging.error('<condo_payment_sepa_mandate>: Bank account number ' + accountnumber.number \
+                + ' without owner but used in mandate ' + row['identification'] if row['identification']!=pgnull else None \
+                + ' with state ' + row['state'] if row['state']!=pgnull else None)
+        idmandate[row['id']] = record.id
 
-    accountnumber = get_bankaccountnumber(row[8])
+with open(path_data_file('condo_unit.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
 
-    #COPY condo_payment_group (id, create_uid, create_date, write_date, reference, company, write_uid, sepa_batch_booking, account_number, sepa_charge_bearer, date, pain, message) FROM stdin;
-    grupo = CondoPaymentGroup(reference = row[4] if row[4]!=pgnull else None,
-                              company = comunidad,
-                              sepa_batch_booking = False if (row[7]=='f' or row[7]==0) else True,
-                              account_number = accountnumber,
-                              sepa_charge_bearer = row[9] if row[9]!=pgnull else None,
-                              date = datetime.strptime(row[10],"%Y-%m-%d") if row[10]!=pgnull else None,
-                              message = row[12].replace('\\r\\n', '\n').replace('\\n', '\n') if row[12]!=pgnull else None,
-                              pain = fact)
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_unit', ni, nt), total=rawgencount(path_data_file('condo_unit.csv'))-1):
 
-    payments = filter(lambda x:x[12]==row[0], rpayment)
-    #COPY condo_payment (id, create_uid, create_date, description, state, sepa_end_to_end_id, currency, amount, sepa_mandate, write_date, party, date, "group", write_uid, type, unit) FROM stdin;
-    for payment in payments:
+        unit, = CondoUnit.find([
+                                ('name', '=', row['name']),
+                                ('company','=', idcompany[row['company']]),
+                               ])
 
-        moneda = get_currency(payment[6])
+        if unit:
+            with open(path_data_file('condo_unit-factor.csv'), 'r') as _csvfile:
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
 
-        fraccion = None
-        if payment[15]!=pgnull:
-            unit, = filter(lambda x:x[0]==payment[15], runit)
-            #COPY condo_unit (id, create_uid, create_date, name, company, write_uid, write_date) FROM stdin;
-            fraccion, = CondoUnit.find([('name', '=', unit[3]), ('company','=', idcompany[unit[4]])])
+                for _row in filter(lambda f:f['unit']==row['id'], _csvreader):
+                    for __row in filter(lambda f:f['id']==_row['factor'], table['condo_factor']):
+                        company = get_company(__row['company'])
+                        factor, = CondoFactor.find([
+                                                    ('name','=', __row['name']),
+                                                    ('company','=', company.id),
+                                                   ])
+                    if factor:
+                        _record = UnitFactor(
+                                             factor = factor,
+                                             value = Decimal(_row['value']) if _row['value']!=pgnull else None,
+                                            )
+                        unit.factors.append(_record)
+                    else:
+                        logging.error('<condo_unit-factor>: Unit Factor not found id: ' + row['id'])
 
-        tercero = get_party(payment[10])
+            with open(path_data_file('condo_party.csv'), 'r') as _csvfile:
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
 
-        mandato = None
-        if payment[8]!=pgnull:
-            mandato, = Mandate.find([('id', '=', idmandate[payment[8]])])
+                for _row in filter(lambda f:f['unit']==row['id'], _csvreader):
+                    address, sepa_mandate = None, None
+                    party = get_party(_row['party'])
 
-        recibo = CondoPayment(currency = moneda,
-                              unit = fraccion,
-                              sepa_end_to_end_id = payment[5] if payment[5]!=pgnull else None,
-                              state = payment[4] if payment[4]!=pgnull else None,
-                              party = tercero,
-                              type = payment[14] if payment[14]!=pgnull else None,
-                              description = payment[3] if payment[3]!=pgnull else None,
-                              sepa_mandate = mandato,
-                              date = datetime.strptime(payment[11],"%Y-%m-%d") if payment[11]!=pgnull else None,
-                              amount = Decimal(payment[7]) if payment[7]!=pgnull else None)
-        grupo.payments.append(recibo)
+                    if _row['address'] in idaddress:
+                        address = Address(idaddress[_row['address']])
 
-    grupo.save()
+                        if not address:
+                            logging.error('<condo_party>: Mail address not found for party id: ' + str(idparties[_row['party']]) + ' and name:' + party.name)
 
-for row in set([(r[2], r[4], r[8]) for r in sorted(riruiview, key=lambda field: (field[8],field[4]))]):
-    users = User.find([('login', '!=', 'root'),
-                       ('login', '!=', 'user_cron_trigger'),
-                       ('active', '=', True)])
-    for user in users:
-        view = ViewSearch(
-                          domain = row[0].decode('unicode-escape'),
-                          name = row[1],
-                          user = user,
-                          model = row[2],
+                    if _row['sepa_mandate']!=pgnull:
+                        sepa_mandate = Mandate(idmandate[_row['sepa_mandate']])
+
+                    _record = CondoParty(
+                                         active = False if (_row['active']=='f' or _row['active']==0) else True,
+                                         address = address if _row['address']!=pgnull else None,
+                                         mail = False if (_row['mail']=='f' or _row['mail']==0) else True,
+                                         party = party,
+                                         role = _row['role'] if _row['role']!=pgnull else None,
+                                         sepa_mandate = sepa_mandate,
+                                        )
+                    unit.parties.append(_record)
+
+            unit.save()
+            idunits[row['id']] = unit.id
+        else:
+            logging.error('<condo_unit>: Unit not found id: ' + row['id'])
+
+with open(path_data_file('condo_payment_pain.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_pain', ni, nt), total=rawgencount(path_data_file('condo_payment_pain.csv'))-1):
+        company = get_company(row['company'])
+
+        record = CondoPain(
+                           company = company,
+                           message = row['message'].replace('\\r\\n', '\n').replace('\\n', '\n') if row['message']!=pgnull else None,
+                           reference = row['reference'] if row['reference']!=pgnull else None,
+                           sepa_receivable_flavor = row['sepa_receivable_flavor'] if row['sepa_receivable_flavor']!=pgnull else None,
+                           state = row['state'] if row['state']!=pgnull else None,
                           )
-        view.save()
+        record.save()
+        idpains[row['id']] = record.id
+
+with open(path_data_file('condo_payment_group.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_group', ni, nt), total=rawgencount(path_data_file('condo_payment_group.csv'))-1):
+
+        company = get_company(row['company'])
+
+        pain = None
+        if row['pain']!=pgnull: #case condo_payment_group is included in any pain message
+            pain = CondoPain(idpains[row['pain']])
+            if not pain:
+                logging.error('<condo_payment_group>: Payment Group with reference ' + row['reference'] + ' of condominium ' + company.party.name + ' not found')
+
+        accountnumber = get_bankaccountnumber(row['account_number'])
+
+        record = CondoPaymentGroup(
+                                   account_number = accountnumber,
+                                   company = company,
+                                   date = datetime.strptime(row['date'],"%Y-%m-%d") if row['date']!=pgnull else None,
+                                   message = row['message'].replace('\\r\\n', '\n').replace('\\n', '\n') if row['message']!=pgnull else None,
+                                   pain = pain,
+                                   reference = row['reference'] if row['reference']!=pgnull else None,
+                                   sepa_batch_booking = False if (row['sepa_batch_booking']=='f' or row['sepa_batch_booking']==0) else True,
+                                   sepa_charge_bearer = row['sepa_charge_bearer'] if row['sepa_charge_bearer']!=pgnull else None,
+                                  )
+
+        with open(path_data_file('condo_payment.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['group']==row['id'], _csvreader):
+
+                currency = get_currency(_row['currency'])
+                party = get_party(_row['party'])
+
+                unit = None
+                if _row['unit']!=pgnull:
+                    unit = CondoUnit(idunits[_row['unit']])
+
+                sepa_mandate = None
+                if _row['sepa_mandate']!=pgnull:
+                    sepa_mandate = Mandate(idmandate[_row['sepa_mandate']])
+
+                _record = CondoPayment(
+                                       amount = Decimal(_row['amount']) if _row['amount']!=pgnull else None,
+                                       currency = currency,
+                                       date = datetime.strptime(_row['date'],"%Y-%m-%d") if _row['date']!=pgnull else None,
+                                       description = _row['description'] if _row['description']!=pgnull else None,
+                                       party = party,
+                                       sepa_end_to_end_id = _row['sepa_end_to_end_id'] if _row['sepa_end_to_end_id']!=pgnull else None,
+                                       sepa_mandate = sepa_mandate,
+                                       state = _row['state'] if _row['state']!=pgnull else None,
+                                       type = _row['type'] if _row['type']!=pgnull else None,
+                                       unit = unit,
+                                      )
+                record.payments.append(_record)
+
+        record.save()
+
+with open(path_data_file('ir_model_data.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    skip = [f['db_id'] for f in csvreader if f['model']=='holidays.calendar']
+
+with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('holidays_calendar', ni, nt), total=rawgencount(path_data_file('holidays_calendar.csv'))-1):
+
+        if row['id'] in skip:
+            calendars = Holidays.find([
+                                       ('name', '=', row['name']),
+                                       ('owner', '=', iduser[row['owner']]),
+                                      ])
+            if calendars and len(calendars)==1:
+                idhlds[row['id']] = calendars[0].id
+            else:
+                logging.error('<holidays_calendar>: Calendar name ' + row['name'] + ' with owner ' + row['owner'] + ' not found')
+            continue
+
+        owner = User(iduser[row['owner']])
+        record = Holidays(
+                          description = row['description'] if row['description']!=pgnull else None,
+                          name = row['name'],
+                          owner = owner,
+                         )
+
+        with open(path_data_file('holidays_event.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['calendar']==row['id'], _csvreader):
+
+                _record = HolidaysEvent(
+                                        description = _row['description'] if _row['description']!=pgnull else None,
+                                        dtend = datetime.strptime(_row['dtend'], '%Y-%m-%d')  if _row['dtend']!=pgnull else None,
+                                        dtstart = datetime.strptime(_row['dtstart'], '%Y-%m-%d'),
+                                        status = _row['status'] if _row['status']!=pgnull else None,
+                                        summary = _row['summary'] if _row['summary']!=pgnull else None,
+                                        #uuid
+                                       )
+
+                with open(path_data_file('holidays_event_rrule.csv'), 'r') as __csvfile:
+                    __csvreader = csv.DictReader(__csvfile, delimiter='\t', encoding='utf-8')
+
+                    for __row in filter(lambda f:f['event']==_row['id'], __csvreader):
+                        __record = HolidaysEventRRule(
+                                                      count = __row['count'] if __row['count']!=pgnull else None,
+                                                      byday = __row['byday'] if __row['byday']!=pgnull else None,
+                                                      byeaster = __row['byeaster'] if __row['byeaster']!=pgnull else None,
+                                                      bymonth = __row['bymonth'] if __row['bymonth']!=pgnull else None,
+                                                      bymonthday = __row['bymonthday'] if __row['bymonthday']!=pgnull else None,
+                                                      bysetpos = __row['bysetpos'] if __row['bysetpos']!=pgnull else None,
+                                                      byyearday = __row['byyearday'] if __row['byyearday']!=pgnull else None,
+                                                      byweekno = __row['byweekno'] if __row['byweekno']!=pgnull else None,
+                                                      freq = __row['freq'] if __row['freq']!=pgnull else None,
+                                                      interval = __row['interval'] if __row['interval']!=pgnull else None,
+                                                      until = datetime.strptime(__row['until'], '%Y-%m-%d') if __row['until']!=pgnull else None,
+                                                      wkst = __row['wkst'] if __row['wkst']!=pgnull else None,
+                                                     )
+                        _record.rrules.append(__record)
+
+                record.events.append(_record)
+
+        record.save()
+        idhlds[row['id']] = record.id
+
+with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    for row in csvreader:
+
+        record = Holidays(idhlds[row['id']])
+
+        if row['parent']!=pgnull:
+            parent = Holidays(idhlds[row['parent']])
+
+            record.parent = parent
+
+        with open(path_data_file('holidays_calendar-read-res_user.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['calendar']==row['id'], _csvreader):
+                user = User(iduser[_row['user']])
+
+                if user.id not in record.read_users:
+                    record.read_users.append(user)
+
+        with open(path_data_file('holidays_calendar-write-res_user.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['calendar']==row['id'], _csvreader):
+                user = User(iduser[_row['user']])
+
+                if user.id not in [r.id for r in record.read_users]:
+                    record.write_users.append(user)
+
+        record.save()
+
+with open(path_data_file('recurrence.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    ni += 1
+    for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('recurrence', ni, nt), total=rawgencount(path_data_file('recurrence.csv'))-1):
+
+        record = Recurrence(
+                            active = False if (row['active']=='f' or row['active']==0) else True,
+                            days = int(row['days']) if row['days']!=pgnull else None,
+                            description = row['description'] if row['description']!=pgnull else None,
+                            direction = row['direction'] if row['direction']!=pgnull else None,
+                            dtstart = datetime.strptime(row['dtstart'], '%Y-%m-%d %H:%M:%S'),
+                            leapdays = int(row['leapdays']) if row['leapdays']!=pgnull else None,
+                            months = int(row['months']) if row['months']!=pgnull else None,
+                            name = row['name'] if row['name'] else None,
+                            weekday = row['weekday'] if row['weekday']!=pgnull else None,
+                            weeks = int(row['weeks']) if row['weeks']!=pgnull else None,
+                            years = int(row['years']) if row['years']!=pgnull else None,
+                           )
+
+        with open(path_data_file('recurrence_event.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+
+            for _row in filter(lambda f:f['recurrence']==row['id'], _csvreader):
+
+                user = User(iduser[_row['user']])
+                request_user = User(iduser[_row['request_user']])
+
+                _record = RecurrenceEvent(
+                                          args = _row['args'] if _row['args']!=pgnull else None,
+                                          function = _row['function'] if _row['function']!=pgnull else None,
+                                          model = _row['model'] if _row['model']!=pgnull else None,
+                                          name = _row['name'],
+                                          number_calls = int(_row['number_calls']) if _row['number_calls']!=pgnull else None,
+                                          repeat_missed = False if (_row['repeat_missed']=='f' or _row['repeat_missed']==0) else True,
+                                          request_user = request_user,
+                                          user = user,
+                                         )
+
+                with open(path_data_file('recurrence_date.csv'), 'r') as __csvfile:
+                    __csvreader = csv.DictReader(__csvfile, delimiter='\t', encoding='utf-8')
+
+                    for __row in filter(lambda f:f['event']==_row['id'], __csvreader):
+                        holidays = None
+
+                        if __row['holidays']!=pgnull:
+                            holidays = Holidays(idhlds[__row['holidays']])
+
+                        __record = RecurrenceDate(
+                                                  delta_days = int(__row['delta_days']),
+                                                  holidays = holidays,
+                                                  name = __row['name'],
+                                                  trigger = False if (__row['trigger']=='f' or __row['trigger']==0) else True,
+                                                 )
+
+                        _record.dates.append(__record)
+
+                with open(path_data_file('recurrence_event-company_company.csv'), 'r') as __csvfile:
+                    __csvreader = csv.DictReader(__csvfile, delimiter='\t', encoding='utf-8')
+
+                    for __row in filter(lambda f:f['event']==_row['id'], __csvreader):
+                        company = get_company(__row['company'])
+
+                        _record.companies.append(company)
+
+                record.events.append(_record)
+
+        record.save()
+
+with open(path_data_file('res_user.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    for row in csvreader:
+
+        if row['main_company']!=pgnull or row['company']!=pgnull:
+            user = User(iduser[row['id']])
+
+            if row['main_company']!=pgnull:
+                main_company = Company(idcompany[row['main_company']])
+                user.main_company = main_company
+
+            if row['company']!=pgnull:
+                company = Company(idcompany[row['company']])
+                user.company = company
+
+            user.save()
