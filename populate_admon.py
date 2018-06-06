@@ -2,8 +2,6 @@
 # -*- coding: iso-8859-15 -*-
 
 from proteus import config, Model
-from sql import Table
-from trytond.transaction import Transaction
 
 import os
 import sys
@@ -31,6 +29,10 @@ dbname = os.environ['DB_NAME']
 #config = config.set_trytond('sqlite://')
 #config = config.set_trytond(config_file='/etc/tryton/trytond.conf', database='admon', user='admin')
 #config = config.set_xmlrpc('https://user:passwd@ip:port/databasename')
+
+from sql import Table
+#must be after config.set_trytond call or will look always for sqlite database
+from trytond.transaction import Transaction
 
 def path_data_file(name):
     return os.path.join(os.path.dirname(__file__), 'data', name)
@@ -246,7 +248,7 @@ with open(path_data_file('res_user.csv'), 'r') as csvfile:
 
     for row in csvreader:
         users = User.find([
-                           ('active', '!=', ''),
+                           ('active', 'in', (True, False)),
                            ('name', '=', row['name']),
                            ('login', '=', row['login']),
                           ])
@@ -257,7 +259,7 @@ with open(path_data_file('res_user.csv'), 'r') as csvfile:
                           email = row['email'] if row['email']!=pgnull else None,
                           language = get_lang(row['language']),
                           login = row['login'] if row['login']!=pgnull else None,
-#                          menu = row['menu'] if row['menu']!=pgnull else None,
+                          #menu = row['menu'] if row['menu']!=pgnull else None,
                           name = row['name'] if row['name']!=pgnull else None,
                           #employee
                          )
@@ -329,7 +331,7 @@ for row in sorted(table['party_category'], key=lambda f: f['id']):
 
     category = Category.find([
                               ('name', '=', row['name']),
-                              ('active', '!=', ''),
+                              ('active', 'in', (True, False)),
                              ])
     if (category is None) or len(category)==0:
         record = Category(
