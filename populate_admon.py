@@ -454,8 +454,11 @@ with open(path_data_file('bank_account_number.csv'), 'r') as csvfile:
     for row in orphans:
         logging.warning('<bank_account_number>: Bank Account Number ' + row + ' without owner')
 
-skip_categories = [u'bank']
-skip = [f['id'] for f in table['party_category'] if f['name'] in skip_categories ]
+#skip list of parties in ir_model_data (loaded by modules)
+with open(path_data_file('ir_model_data.csv'), 'r') as csvfile:
+    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+
+    skip = [f['db_id'] for f in csvreader if f['model']=='party.party']
 
 #get id of lang field property in module party
 with open(path_data_file('ir_model_field.csv'), 'r') as csvfile:
@@ -470,12 +473,8 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
     ni +=1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_party', ni, nt), total=rawgencount(path_data_file('party_party.csv'))-1):
 
-        #skip banks
-        with open(path_data_file('party_category_rel.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
-
-            if [c['category'] for c in filter(lambda f:f['party']==row['id'], _csvreader) if c['category'] in skip]:
-                continue
+        if row['id'] in skip:
+            continue
 
         with open(path_data_file('ir_property.csv'), 'r') as _csvfile:
             _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
