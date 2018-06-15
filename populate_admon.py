@@ -4,11 +4,12 @@
 from proteus import config, Model
 
 import os
+
 import sys
+import csv
 
 import logging
 
-import unicodecsv as csv
 #http://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
 csv.field_size_limit(sys.maxsize)
 
@@ -46,7 +47,7 @@ def _make_gen(reader):
 
 def rawgencount(filename):
     with open(filename, 'rb') as f:
-        f_gen = _make_gen(f.read)
+        f_gen = _make_gen(f.raw.read)
         return sum( buf.count(b'\n') for buf in f_gen )
 
 Address = Model.get('party.address')
@@ -107,7 +108,7 @@ party_seq, = Sequence.find([('name', '=', 'Party')])
 party_seq.number_next = 10001
 party_seq.save()
 
-pgnull = '\N'
+pgnull = r'\N'
 
 def get_bankaccountnumber(old_id):
     if old_id==pgnull:
@@ -115,8 +116,8 @@ def get_bankaccountnumber(old_id):
 
     new_accountnumber = None
     with open(path_data_file('bank_account_number.csv'), 'r') as csvfile:
-        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
-        accountnumber = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+        accountnumber = next(filter(lambda f:f['id']==old_id, csvreader), None)
 
     if accountnumber:
         new_accountnumbers = BankAccountNumber.find([('number', '=', accountnumber['number'])])
@@ -146,8 +147,8 @@ def get_country(old_id):
         return new_country
 
     with open(path_data_file('country_country.csv'), 'r') as csvfile:
-        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
-        country = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+        country = next(filter(lambda f:f['id']==old_id, csvreader), None)
 
     if country:
         new_countries = Country.find([('code', '=', country['code'])])
@@ -169,8 +170,8 @@ def get_currency(old_id):
         return new_currency
 
     with open(path_data_file('currency_currency.csv'), 'r') as csvfile:
-        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
-        currency = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+        currency = next(filter(lambda f:f['id']==old_id, csvreader), None)
 
     if currency:
         new_currencies = Currency.find([('code', '=', currency['code'])])
@@ -192,11 +193,11 @@ def get_lang(old_id):
         return new_lang
 
     with open(path_data_file('ir_lang.csv'), 'r') as csvfile:
-        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
-        lang = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+        lang = next(filter(lambda f:f['id']==old_id, csvreader), None)
 
     if lang:
-        new_langs = Lang.find([('code', '=', lang['code'])])
+        new_langs = Lang.find([('code', '=', lang['code'][:2])])
         if new_langs and len(new_langs)==1:
             new_lang = new_langs[0]
             cache_lang[old_id] = new_lang.id
@@ -223,8 +224,8 @@ def get_subdivision(old_id, country):
         return new_subdivision
 
     with open(path_data_file('country_subdivision.csv'), 'r') as csvfile:
-        csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
-        subdivision = (filter(lambda f:f['id']==old_id, csvreader)[0:1]+[None])[0]
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+        subdivision = next(filter(lambda f:f['id']==old_id, csvreader), None)
 
     if subdivision and country:
         new_subdivision, = Subdivision.find([
@@ -240,11 +241,11 @@ def get_subdivision(old_id, country):
     return new_subdivision
 
 with open(path_data_file('res_group.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
     table['res_group'] = list(csvreader)
 
 with open(path_data_file('res_user.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     for row in csvreader:
         users = User.find([
@@ -265,10 +266,10 @@ with open(path_data_file('res_user.csv'), 'r') as csvfile:
                          )
 
             with open(path_data_file('res_user-res_group.csv'), 'r') as _csvfile:
-                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in filter(lambda f:f['user']==row['id'], _csvreader):
-                    r = (filter(lambda f:f['id']==_row['group'], table['res_group'])[0:1]+[None])[0]
+                    r = next(filter(lambda f:f['id']==_row['group'], table['res_group']), None)
 
                     groups = Group.find ([
                                           ('name', '=', r['name']),
@@ -281,38 +282,37 @@ with open(path_data_file('res_user.csv'), 'r') as csvfile:
             record.save()
 
             #copy password_hash of this user
-            with Transaction().start(dbname, 0) as transaction:
-                cursor = transaction.cursor
+            with Transaction().start(dbname, 0, _nocache=True) as transaction,\
+                                    transaction.connection.cursor() as cursor:
                 user = Table('res_user')
                 cursor.execute(*user.update(
                                             columns = [user.password_hash],
                                             values = [row['password_hash']],
                                             where=user.id == record.id))
-                cursor.commit()
         else:
             record = users[0]
 
         iduser[row['id']] = record.id
 
 with open(path_data_file('condo_factor.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
     table['condo_factor'] = list(csvreader)
 
 with open(path_data_file('party_category.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
     table['party_category'] = list(csvreader)
 
 with open(path_data_file('party_relation_type.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
     table['party_relation_type'] = list(csvreader)
 
 with open(path_data_file('ir_ui_view_search.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     for row in csvreader:
         user = User(iduser[row['user']])
         record = ViewSearch(
-                            domain = row['domain'].decode('unicode_escape'),
+                            domain = row['domain'].encode('utf').decode('unicode_escape'),
                             model = row['model'],
                             name = row['name'],
                             user = user,
@@ -322,7 +322,7 @@ with open(path_data_file('ir_ui_view_search.csv'), 'r') as csvfile:
 for row in sorted(table['party_category'], key=lambda f: f['id']):
     parent = None
     if row['parent']!=pgnull:
-        r = (filter(lambda f:f['id']==row['parent'], table['party_category'])[0:1]+[None])[0]
+        r = next(filter(lambda f:f['id']==row['parent'], table['party_category']), None)
 
         if r:
             parent = Category(r['_new_id'])
@@ -356,7 +356,7 @@ for row in sorted(table['party_relation_type'], key=lambda f: f['id']):
     row['_new_id'] = record.id
 
     with open(path_data_file('ir_translation.csv'), 'r') as _csvfile:
-        _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+        _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
         for _row in filter(lambda f:f['name']=='party.relation.type,name' and f['src']==row['name'], _csvreader):
 
@@ -367,12 +367,12 @@ for row in sorted(table['party_relation_type'], key=lambda f: f['id']):
                                              ('type', '=', _row['type'] if _row['type']!=pgnull else None),
                                             ])
             for r in translations:
-                if r.lang == _row['lang']:
+                if r.lang == _row['lang'][:2]:
                     break
 
-            if not r or r.lang != _row['lang']:
+            if not r or r.lang != _row['lang'][:2]:
                 _record = Translation(
-                                      lang = _row['lang'],
+                                      lang = _row['lang'][:2],
                                       module = _row['module'] if _row['module']!=pgnull else None,
                                       name = _row['name'] if _row['name']!=pgnull else None,
                                       res_id = int(_row['res_id']) if _row['res_id']!=pgnull else None,
@@ -385,7 +385,7 @@ for row in sorted(table['party_relation_type'], key=lambda f: f['id']):
 for row in table['party_relation_type']:
     if row['reverse']!=pgnull:
 
-        r = (filter(lambda f:f['id']==row['reverse'], table['party_relation_type'])[0:1]+[None])[0]
+        r = next(filter(lambda f:f['id']==row['reverse'], table['party_relation_type']), None)
         reverse = PartyRelationType(r['_new_id'])
 
         record = PartyRelationType(row['_new_id'])
@@ -393,16 +393,16 @@ for row in table['party_relation_type']:
         record.save()
 
 with open(path_data_file('bank_account.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('bank_account', ni, nt), total=rawgencount(path_data_file('bank_account.csv'))-1):
         bank, currency = None, get_currency(row['currency'])
 
         with open(path_data_file('bank.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
-            _row = (filter(lambda f:f['id']==row['bank'], _csvreader)[0:1]+[None])[0]
+            _row = next(filter(lambda f:f['id']==row['bank'], _csvreader), None)
 
             if _row:
                 country = get_country(_row['country'])
@@ -426,7 +426,7 @@ with open(path_data_file('bank_account.csv'), 'r') as csvfile:
                             )
 
         with open(path_data_file('bank_account_number.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['account']==row['id'], _csvreader):
                 record.numbers.new(
@@ -443,12 +443,12 @@ with open(path_data_file('bank_account.csv'), 'r') as csvfile:
 
 #Check orphan account_numbers
 with open(path_data_file('bank_account-party_party.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     accounts = [f['account'] for f in csvreader]
 
 with open(path_data_file('bank_account_number.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     orphans = [f['number'] for f in csvreader if f['account'] not in accounts]
     for row in orphans:
@@ -456,19 +456,19 @@ with open(path_data_file('bank_account_number.csv'), 'r') as csvfile:
 
 #skip list of parties in ir_model_data (loaded by modules)
 with open(path_data_file('ir_model_data.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     skip = [f['db_id'] for f in csvreader if f['model']=='party.party']
 
 #get id of lang field property in module party
 with open(path_data_file('ir_model_field.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
-    r = (filter(lambda f:f['relation']=='ir.lang' and f['module']=='party', csvreader)[0:1]+[None])[0]
+    r = next(filter(lambda f:f['relation']=='ir.lang' and f['module']=='party', csvreader), None)
     flang = r['id']
 
 with open(path_data_file('party_party.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni +=1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_party', ni, nt), total=rawgencount(path_data_file('party_party.csv'))-1):
@@ -477,7 +477,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
             continue
 
         with open(path_data_file('ir_property.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['res']=='{0},{1}'.format('party.party', row['id']) and f['field']==flang, _csvreader):
                 lang = get_lang(_row['value'].replace('ir.lang,', ''))
@@ -489,7 +489,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
                       )
 
         with open(path_data_file('party_address.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             numaddresses, i = 0, 0
             for _row in filter(lambda f:f['party']==row['id'], _csvreader):
@@ -505,6 +505,8 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
                 if _row['subdivision']!=pgnull:
                     subdivision = get_subdivision(_row['subdivision'], country)
 
+                street = (_row['street'] + '\n' + _row['streetbis']).strip(r'\N\n')
+
                 if i!=0:
                     _record = Address(
                                       active = True,
@@ -512,8 +514,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
                                       country = country,
                                       name = _row['name'] if _row['name']!=pgnull else None,
                                       sequence = int(_row['sequence']) if _row['sequence']!=pgnull else None,
-                                      street = _row['street'] if _row['street']!=pgnull else None,
-                                      streetbis = _row['streetbis'] if _row['streetbis']!=pgnull else None,
+                                      street = street if street else None,
                                       subdivision = subdivision,
                                       zip = _row['zip'] if _row['zip']!=pgnull else None,
                                      )
@@ -524,8 +525,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
                     record.addresses[0].city = _row['city'] if _row['city']!=pgnull else None
                     record.addresses[0].country = country
                     record.addresses[0].name = _row['name'] if _row['name']!=pgnull else None
-                    record.addresses[0].street = _row['street'] if _row['street']!=pgnull else None
-                    record.addresses[0].streetbis = _row['streetbis'] if _row['streetbis']!=pgnull else None
+                    record.addresses[0].street = street if street else None
                     record.addresses[0].subdivision = subdivision
                     record.addresses[0].zip = _row['zip'] if _row['zip']!=pgnull else None
 
@@ -536,7 +536,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
             logging.info('<party_address>: {0} empty addresses not created for party name: '.format(num) + row['name'])
 
         with open(path_data_file('party_contact_mechanism.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['party']==row['id'], _csvreader):
                 _record = ContactMechanism(
@@ -551,7 +551,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
         seen = set()
 
         with open(path_data_file('bank_account-party_party.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['owner']==row['id'], _csvreader):
                 if _row['account'] in seen:
@@ -568,7 +568,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
                     logging.errort('<bank_account-party_party>: Bank Account not found id: ' + _row['account'])
 
         with open(path_data_file('party_identifier.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['party']==row['id'], _csvreader):
                 _record = Identifier(
@@ -578,10 +578,10 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
                 record.identifiers.append(_record)
 
         with open(path_data_file('party_category_rel.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['party']==row['id'], _csvreader):
-                r = (filter(lambda f:f['id']==_row['category'], table['party_category'])[0:1]+[None])[0]
+                r = next(filter(lambda f:f['id']==_row['category'], table['party_category']), None)
                 if r:
                     category = Category(r['_new_id'])
                     record.categories.append(category)
@@ -594,7 +594,7 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
         _save, i = False, 0
 
         with open(path_data_file('party_address.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['party']==row['id'], _csvreader):
                 if sum(1 for a in [_row[b] for b in ['name', 'street', 'streetbis', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
@@ -615,13 +615,13 @@ with open(path_data_file('party_party.csv'), 'r') as csvfile:
             record.save()
 
 with open(path_data_file('party_relation.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     for row in csvreader:
         to = get_party(row['to'])
         from_ = get_party(row['from_'])
 
-        r = (filter(lambda f:f['id']==row['type'], table['party_relation_type'])[0:1]+[None])[0]
+        r = next(filter(lambda f:f['id']==row['type'], table['party_relation_type']), None)
         type_ = PartyRelationType(r['_new_id'])
 
         record = PartyRelation(
@@ -633,7 +633,7 @@ with open(path_data_file('party_relation.csv'), 'r') as csvfile:
 
 #note: package pytz must be installed on server (otherwise comment out timezone field attribution)
 with open(path_data_file('company_company.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('company_company', ni, nt), total=rawgencount(path_data_file('company_company.csv'))-1):
@@ -665,7 +665,7 @@ with open(path_data_file('company_company.csv'), 'r') as csvfile:
                 record.condo_factors.append(_record)
 
             with open(path_data_file('condo_unit.csv'), 'r') as _csvfile:
-                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in sorted(filter(lambda f:f['company']==row['id'], _csvreader), key=lambda f: f['name']):
                     _record = CondoUnit(
@@ -681,7 +681,7 @@ with open(path_data_file('company_company.csv'), 'r') as csvfile:
 
 #set parent of companies
 with open(path_data_file('company_company.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     for row in csvreader:
         record = get_company(row['id'])
@@ -695,7 +695,7 @@ with open(path_data_file('company_company.csv'), 'r') as csvfile:
                 logging.error('<company_company>: Company not found id: ' + row['id'])
 
 with open(path_data_file('condo_payment_sepa_mandate.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_sepa_mandate', ni, nt), total=rawgencount(path_data_file('condo_payment_sepa_mandate.csv'))-1):
@@ -722,7 +722,7 @@ with open(path_data_file('condo_payment_sepa_mandate.csv'), 'r') as csvfile:
         idmandate[row['id']] = record.id
 
 with open(path_data_file('condo_unit.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_unit', ni, nt), total=rawgencount(path_data_file('condo_unit.csv'))-1):
@@ -734,7 +734,7 @@ with open(path_data_file('condo_unit.csv'), 'r') as csvfile:
 
         if unit:
             with open(path_data_file('condo_unit-factor.csv'), 'r') as _csvfile:
-                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in filter(lambda f:f['unit']==row['id'], _csvreader):
                     for __row in filter(lambda f:f['id']==_row['factor'], table['condo_factor']):
@@ -753,7 +753,7 @@ with open(path_data_file('condo_unit.csv'), 'r') as csvfile:
                         logging.error('<condo_unit-factor>: Unit Factor not found id: ' + row['id'])
 
             with open(path_data_file('condo_party.csv'), 'r') as _csvfile:
-                _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+                _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in filter(lambda f:f['unit']==row['id'], _csvreader):
                     address, sepa_mandate = None, None
@@ -784,7 +784,7 @@ with open(path_data_file('condo_unit.csv'), 'r') as csvfile:
             logging.error('<condo_unit>: Unit not found id: ' + row['id'])
 
 with open(path_data_file('condo_payment_pain.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_pain', ni, nt), total=rawgencount(path_data_file('condo_payment_pain.csv'))-1):
@@ -801,7 +801,7 @@ with open(path_data_file('condo_payment_pain.csv'), 'r') as csvfile:
         idpains[row['id']] = record.id
 
 with open(path_data_file('condo_payment_group.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_group', ni, nt), total=rawgencount(path_data_file('condo_payment_group.csv'))-1):
@@ -828,7 +828,7 @@ with open(path_data_file('condo_payment_group.csv'), 'r') as csvfile:
                                   )
 
         with open(path_data_file('condo_payment.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['group']==row['id'], _csvreader):
 
@@ -860,12 +860,12 @@ with open(path_data_file('condo_payment_group.csv'), 'r') as csvfile:
         record.save()
 
 with open(path_data_file('ir_model_data.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     skip = [f['db_id'] for f in csvreader if f['model']=='holidays.calendar']
 
 with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('holidays_calendar', ni, nt), total=rawgencount(path_data_file('holidays_calendar.csv'))-1):
@@ -889,7 +889,7 @@ with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
                          )
 
         with open(path_data_file('holidays_event.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['calendar']==row['id'], _csvreader):
 
@@ -903,7 +903,7 @@ with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
                                        )
 
                 with open(path_data_file('holidays_event_rrule.csv'), 'r') as __csvfile:
-                    __csvreader = csv.DictReader(__csvfile, delimiter='\t', encoding='utf-8')
+                    __csvreader = csv.DictReader(__csvfile, delimiter='\t')
 
                     for __row in filter(lambda f:f['event']==_row['id'], __csvreader):
                         __record = HolidaysEventRRule(
@@ -928,7 +928,7 @@ with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
         idhlds[row['id']] = record.id
 
 with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     for row in csvreader:
 
@@ -940,7 +940,7 @@ with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
             record.parent = parent
 
         with open(path_data_file('holidays_calendar-read-res_user.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['calendar']==row['id'], _csvreader):
                 user = User(iduser[_row['user']])
@@ -949,18 +949,18 @@ with open(path_data_file('holidays_calendar.csv'), 'r') as csvfile:
                     record.read_users.append(user)
 
         with open(path_data_file('holidays_calendar-write-res_user.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['calendar']==row['id'], _csvreader):
                 user = User(iduser[_row['user']])
 
-                if user.id not in [r.id for r in record.read_users]:
+                if user.id not in record.read_users:
                     record.write_users.append(user)
 
         record.save()
 
 with open(path_data_file('recurrence.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     ni += 1
     for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('recurrence', ni, nt), total=rawgencount(path_data_file('recurrence.csv'))-1):
@@ -980,7 +980,7 @@ with open(path_data_file('recurrence.csv'), 'r') as csvfile:
                            )
 
         with open(path_data_file('recurrence_event.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t', encoding='utf-8')
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
             for _row in filter(lambda f:f['recurrence']==row['id'], _csvreader):
 
@@ -999,7 +999,7 @@ with open(path_data_file('recurrence.csv'), 'r') as csvfile:
                                          )
 
                 with open(path_data_file('recurrence_date.csv'), 'r') as __csvfile:
-                    __csvreader = csv.DictReader(__csvfile, delimiter='\t', encoding='utf-8')
+                    __csvreader = csv.DictReader(__csvfile, delimiter='\t')
 
                     for __row in filter(lambda f:f['event']==_row['id'], __csvreader):
                         holidays = None
@@ -1017,7 +1017,7 @@ with open(path_data_file('recurrence.csv'), 'r') as csvfile:
                         _record.dates.append(__record)
 
                 with open(path_data_file('recurrence_event-company_company.csv'), 'r') as __csvfile:
-                    __csvreader = csv.DictReader(__csvfile, delimiter='\t', encoding='utf-8')
+                    __csvreader = csv.DictReader(__csvfile, delimiter='\t')
 
                     for __row in filter(lambda f:f['event']==_row['id'], __csvreader):
                         company = get_company(__row['company'])
@@ -1029,7 +1029,7 @@ with open(path_data_file('recurrence.csv'), 'r') as csvfile:
         record.save()
 
 with open(path_data_file('res_user.csv'), 'r') as csvfile:
-    csvreader = csv.DictReader(csvfile, delimiter='\t', encoding='utf-8')
+    csvreader = csv.DictReader(csvfile, delimiter='\t')
 
     for row in csvreader:
 
