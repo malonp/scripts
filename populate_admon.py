@@ -17,10 +17,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 if len(sys.argv)==2:
-    try:
-        config = config.set_trytond(str(sys.argv[1]))
-    except Exception as e:
-        sys.exit(str(e))
+    config = config.set_trytond(str(sys.argv[1]))
 else:
     sys.exit("Usage: python " + os.path.basename(__file__) + " uri")
 
