@@ -501,7 +501,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     if _row['subdivision']!=pgnull:
                         subdivision = get_subdivision(_row['subdivision'], country)
 
-                    street = (_row['street'] + '\n' + _row['streetbis']).strip(r'\N\n')
+                    street = _row['street'] if _row['street'] not in [pgnull, u''] else '' + \
+                             '\n' if (_row['street'] not in [pgnull, u''] and _row['streetbis'] not in [pgnull, u'']) else '' + \
+                             _row['streetbis'] if _row['streetbis'] not in [pgnull, u''] else ''
 
                     if i!=0:
                         _record = Address(
