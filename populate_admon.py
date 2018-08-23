@@ -472,11 +472,11 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             if row['id'] in skip:
                 continue
 
-            with open(path_data_file(datadir, 'ir_property.csv'), 'r') as _csvfile:
+            with open(path_data_file(datadir, 'party_party_lang.csv'), 'r') as _csvfile:
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
-                for _row in filter(lambda f:f['res']=='{0},{1}'.format('party.party', row['id']) and f['field']==flang, _csvreader):
-                    lang = get_lang(_row['value'].replace('ir.lang,', ''))
+                for _row in filter(lambda f:f['party']==row['id'], _csvreader):
+                    lang = get_lang(_row['lang'])
 
             record = Party(
                            active = False if (row['active']=='f' or row['active']==0) else True,
@@ -491,7 +491,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 for _row in filter(lambda f:f['party']==row['id'], _csvreader):
 
                     numaddresses += 1
-                    if sum(1 for a in [_row[b] for b in ['name', 'street', 'streetbis', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
+                    if sum(1 for a in [_row[b] for b in ['name', 'street', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
                         continue
 
                     subdivision, country = None, None
@@ -501,10 +501,6 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     if _row['subdivision']!=pgnull:
                         subdivision = get_subdivision(_row['subdivision'], country)
 
-                    street = _row['street'] if _row['street'] not in [pgnull, u''] else '' + \
-                             '\n' if (_row['street'] not in [pgnull, u''] and _row['streetbis'] not in [pgnull, u'']) else '' + \
-                             _row['streetbis'] if _row['streetbis'] not in [pgnull, u''] else ''
-
                     if i!=0:
                         _record = Address(
                                           active = True,
@@ -512,7 +508,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                                           country = country,
                                           name = _row['name'] if _row['name']!=pgnull else None,
                                           sequence = int(_row['sequence']) if _row['sequence']!=pgnull else None,
-                                          street = street if street else None,
+                                          street = _row['street'] if _row['street']!=pgnull else None,
                                           subdivision = subdivision,
                                           zip = _row['zip'] if _row['zip']!=pgnull else None,
                                          )
@@ -523,7 +519,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         record.addresses[0].city = _row['city'] if _row['city']!=pgnull else None
                         record.addresses[0].country = country
                         record.addresses[0].name = _row['name'] if _row['name']!=pgnull else None
-                        record.addresses[0].street = street if street else None
+                        record.addresses[0].street = _row['street'] if _row['street']!=pgnull else None
                         record.addresses[0].subdivision = subdivision
                         record.addresses[0].zip = _row['zip'] if _row['zip']!=pgnull else None
 
@@ -595,7 +591,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in filter(lambda f:f['party']==row['id'], _csvreader):
-                    if sum(1 for a in [_row[b] for b in ['name', 'street', 'streetbis', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
+                    if sum(1 for a in [_row[b] for b in ['name', 'street', 'zip', 'city', 'subdivision']] if a not in [pgnull, u''])==0:
                         continue
                     if len(record.addresses) > i:
                         idaddress[_row['id']] = record.addresses[i].id
