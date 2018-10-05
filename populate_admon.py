@@ -537,6 +537,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     _record = ContactMechanism(
                                                active = False if (_row['active']=='f' or _row['active']==0) else True,
                                                comment = _row['comment'].replace('\\r\\n', '\n').replace('\\n', '\n') if _row['comment']!=pgnull else None,
+                                               name = _row['name'] if _row['name']!=pgnull else None,
                                                sequence = int(_row['sequence']) if _row['sequence']!=pgnull else None,
                                                type = _row['type'] if _row['type']!=pgnull else None,
                                                value = _row['value'] if _row['value']!=pgnull else None,
