@@ -431,6 +431,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                                        type = _row['type'],
                                       )
 
+                    #check if spanish bank account number is correct
                     if (bank.code[0:2]=='ES' and _row['number'][5:9] != bank.code[2:6]):
                          logging.warning('<bank_account_number>: ' + _row['number'] + ' does not match bank ' + bank.code)
 
