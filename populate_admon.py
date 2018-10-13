@@ -354,25 +354,26 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         with open(path_data_file(datadir, 'ir_translation.csv'), 'r') as _csvfile:
             _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
-            for _row in filter(lambda f:f['name']=='party.relation.type,name' and f['src']==row['name'], _csvreader):
+            for _row in filter(lambda f:f['name']=='party.relation.type,name' and f['type']=='model' and f['res_id']==row['id'], _csvreader):
+
+                if _row['src']!=row['name']:
+                    logging.warning('<ir_translation>: src of translation "{0}" not equal to relation type name "{1}"'.format(_row['src'], row['name']))
 
                 translations = Translation.find([
-                                                 ('name', '=', _row['name'] if _row['name']!=pgnull else None),
-                                                 ('res_id', '=', _row['res_id'] if _row['res_id']!=pgnull else None),
-                                                 ('src', '=', _row['src'] if _row['src']!=pgnull else None),
-                                                 ('type', '=', _row['type'] if _row['type']!=pgnull else None),
+                                                 ('lang', '=', _row['lang']),
+                                                 ('name', '=', 'party.relation.type,name'),
+                                                 ('res_id', '=', row['_new_id']),
+                                                 ('src', '=', row['name']),
+                                                 ('type', '=', 'model'),
                                                 ])
-                for r in translations:
-                    if r.lang == _row['lang'][:2]:
-                        break
 
-                if not r or r.lang != _row['lang'][:2]:
+                if not len(translations):
                     _record = Translation(
-                                          lang = _row['lang'][:2],
+                                          lang = _row['lang'],
                                           module = _row['module'] if _row['module']!=pgnull else None,
                                           name = _row['name'] if _row['name']!=pgnull else None,
-                                          res_id = int(_row['res_id']) if _row['res_id']!=pgnull else None,
-                                          src = _row['src'],
+                                          res_id = int(row['_new_id']),
+                                          src = row['name'],    #_row['src'] should be equal to row['name']
                                           type = _row['type'] if _row['type']!=pgnull else None,
                                           value = _row['value'],
                                          )
