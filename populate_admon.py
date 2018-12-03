@@ -47,6 +47,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     from trytond.transaction import Transaction
 
     Address = Model.get('party.address')
+    AddressFormat = Model.get('party.address.format')
     Bank = Model.get('bank')
     BankAccount = Model.get('bank.account')
     BankAccountNumber = Model.get('bank.account.number')
@@ -68,6 +69,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     Identifier = Model.get('party.identifier')
     Lang = Model.get('ir.lang')
     Mandate = Model.get('condo.payment.sepa.mandate')
+    ModelData = Model.get('ir.model.data')
     Party = Model.get('party.party')
     PartyRelation = Model.get('party.relation.all')
     PartyRelationType = Model.get('party.relation.type')
@@ -98,7 +100,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     cache_subdivision = {}
 
     ni = 0
-    nt = 9
+    nt = 10
 
     party_seq, = Sequence.find([('name', '=', 'Party')])
     party_seq.number_next = 10001
@@ -182,6 +184,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         return new_currency
 
     def get_lang(old_id):
+        if old_id==pgnull:
+            return None
+
         new_lang = None
 
         if old_id in cache_lang:
@@ -452,11 +457,74 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         for row in orphans:
             logging.warning('<bank_account_number>: Bank Account Number ' + row + ' without owner')
 
-    #skip list of parties in ir_model_data (loaded by modules)
+    #skip list of party.address.format in ir_model_data (loaded by modules)
+    model_data_noupdate = {}
+    model_data_update = {}
     with open(path_data_file(datadir, 'ir_model_data.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
-        skip = [f['db_id'] for f in csvreader if f['model']=='party.party']
+        for item in filter(lambda f:f['model']=='party.address.format', csvreader):
+            if item['noupdate']=='f' or item['noupdate']==0:
+                model_data_noupdate[item['db_id']]=item['fs_id']
+            else:
+                model_data_update[item['db_id']]=item['fs_id']
+
+    with open(path_data_file(datadir, 'party_address_format.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        ni +=1
+        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_address_format', ni, nt), total=rawgencount(path_data_file(datadir, 'party_address_format.csv'))-1):
+
+            if row['id'] in model_data_noupdate:
+                continue
+
+            if row['id'] in model_data_update:
+                if row['write_date']!=pgnull and row['write_uid']!=pgnull:
+                    records = ModelData.find([
+                                              ('model', '=', 'party.address.format'),
+                                              ('fs_id', '=', model_data_update[row['id']]),
+                                            ])
+
+                    if records and len(records)==1:
+                        record = AddressFormat(records[0].db_id)
+
+                        country = get_country(row['country'])
+                        lang = get_lang(row['language'])
+
+                        record.active = False if (row['active']=='f' or row['active']==0) else True
+                        record.country = country
+                        record.format_ = row['format_'].replace('\\r\\n', '\n').replace('\\n', '\n') if row['format_']!=pgnull else None
+                        record.language = lang
+                        record.save()
+
+                        logging.warning('<party_address_format>: Record updated with country: ' + country.name + ' and with fs_id: ' + model_data_update[row['id']])
+                    else:
+                        logging.error('<party_address_format>: Record with fs_id ' + model_data_update[row['id']] + ' not found')
+
+                continue
+
+            country = get_country(row['country'])
+            lang = get_lang(row['language'])
+
+            record = AddressFormat(
+                                   active = False if (row['active']=='f' or row['active']==0) else True,
+                                   country = country,
+                                   format_ = row['format_'] if row['format_']!=pgnull else None,
+                                   language = lang,
+                                  )
+            record.save()
+
+    #skip list of parties in ir_model_data (loaded by modules)
+    model_data_noupdate = {}
+    model_data_update = {}
+    with open(path_data_file(datadir, 'ir_model_data.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for item in filter(lambda f:f['model']=='party.party', csvreader):
+            if item['noupdate']=='f' or item['noupdate']==0:
+                model_data_noupdate[item['db_id']]=item['fs_id']
+            else:
+                model_data_update[item['db_id']]=item['fs_id']
 
     #get id of lang field property in module party
     with open(path_data_file(datadir, 'ir_model_field.csv'), 'r') as csvfile:
@@ -471,7 +539,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         ni +=1
         for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_party', ni, nt), total=rawgencount(path_data_file(datadir, 'party_party.csv'))-1):
 
-            if row['id'] in skip:
+            if row['id'] in model_data_noupdate:
                 continue
 
             with open(path_data_file(datadir, 'party_party_lang.csv'), 'r') as _csvfile:
@@ -859,10 +927,17 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
             record.save()
 
+    #skip list of holidays.calendar in ir_model_data (loaded by modules)
+    model_data_noupdate = {}
+    model_data_update = {}
     with open(path_data_file(datadir, 'ir_model_data.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
-        skip = [f['db_id'] for f in csvreader if f['model']=='holidays.calendar']
+        for item in filter(lambda f:f['model']=='holidays.calendar', csvreader):
+            if item['noupdate']=='f' or item['noupdate']==0:
+                model_data_noupdate[item['db_id']]=item['fs_id']
+            else:
+                model_data_update[item['db_id']]=item['fs_id']
 
     with open(path_data_file(datadir, 'holidays_calendar.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -870,15 +945,40 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         ni += 1
         for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('holidays_calendar', ni, nt), total=rawgencount(path_data_file(datadir, 'holidays_calendar.csv'))-1):
 
-            if row['id'] in skip:
-                calendars = Holidays.find([
-                                           ('name', '=', row['name']),
-                                           ('owner', '=', iduser[row['owner']]),
-                                          ])
-                if calendars and len(calendars)==1:
-                    idhlds[row['id']] = calendars[0].id
+            if row['id'] in model_data_noupdate:
+                records = ModelData.find([
+                                            ('model', '=', 'holidays.calendar'),
+                                            ('fs_id', '=', model_data_noupdate[row['id']]),
+                                         ])
+                if records and len(records)==1:
+                    idhlds[row['id']] = records[0].db_id
                 else:
-                    logging.error('<holidays_calendar>: Calendar name ' + row['name'] + ' with owner ' + row['owner'] + ' not found')
+                    logging.warning('<holidays_calendar>: Calendar not found with fs_id: ' + model_data_noupdate[row['id']])
+
+                continue
+
+            if row['id'] in model_data_update:
+                records = ModelData.find([
+                                            ('model', '=', 'holidays.calendar'),
+                                            ('fs_id', '=', model_data_update[row['id']]),
+                                         ])
+                if records and len(records)==1:
+                    calendar = Holidays(records[0].db_id)
+
+                    idhlds[row['id']] = calendar.id
+
+                    if row['write_date']!=pgnull and row['write_uid']!=pgnull:
+                        owner = User(iduser[row['owner']])
+
+                        calendar.descripttion = row['description'] if row['description']!=pgnull else None
+                        calendar.name = row['name']
+                        calendar.owner = owner
+                        calendar.save()
+
+                        logging.warning('<holidays_calendar>: Record updated with name: ' + calendar.name + ' and fs_id: ' + model_data_update[row['id']])
+                else:
+                    logging.error('<holidays_calendar>: Record with fs_id ' + model_data_update[row['id']] + ' not found')
+
                 continue
 
             owner = User(iduser[row['owner']])
@@ -931,6 +1031,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         for row in csvreader:
+
+            if row['id'] in model_data_noupdate:
+                continue
 
             record = Holidays(idhlds[row['id']])
 
