@@ -198,7 +198,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             lang = next(filter(lambda f:f['id']==old_id, csvreader), None)
 
         if lang:
-            new_langs = Lang.find([('code', '=', lang['code'][:2])])
+            new_langs = Lang.find([('code', '=', lang['code'])])
             if new_langs and len(new_langs)==1:
                 new_lang = new_langs[0]
                 cache_lang[old_id] = new_lang.id
@@ -824,10 +824,6 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         address, sepa_mandate = None, None
                         party = get_party(_row['party'])
 
-                        #version <= 3.8.8 or <= 4.8.0
-                        if 'active' in _row and (_row['active']=='f' or _row['active']==0):
-                            continue
-
                         if _row['address'] in idaddress:
                             address = Address(idaddress[_row['address']])
 
@@ -838,8 +834,8 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                             sepa_mandate = Mandate(idmandate[_row['sepa_mandate']])
 
                         _record = CondoParty(
-                                             address = address if _row['address']!=pgnull else None,
-                                             mail = False if (_row['mail']=='f' or _row['mail']==0) else True,
+                                            #compatibility with previous versions
+                                             address = address if (_row['address']!=pgnull or ('mail' in _row and (_row['mail']!='f' and _row['mail']!=0))) else None,
                                              party = party,
                                              role = _row['role'] if _row['role']!=pgnull else None,
                                              sepa_mandate = sepa_mandate,
