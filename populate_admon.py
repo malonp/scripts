@@ -912,12 +912,12 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         description = re.sub(r'\\*\\n', '', _row['description'])
                         if len(description)>140:
                             description = description[:140]
-                            logging.error('<condo_payment>: description field trimmed to 140 characters')
+                        logging.error('<condo_payment>: description field trimmed to 140 characters')
                     else:
                         description = _row['description'].replace('\\r\\n', '').replace('\\n', '')
 
                     if len(description) != len(_row['description']):
-                        logging.warning('<condo_payment>: description field size was bigger than 140' + \
+                        logging.warning('<condo_payment>: description field size changed' + \
                                         '\ncondominium:  "' + unit.company.party.name + '"\nunit :        "' + unit.name + \
                                         '"\npaymentgroup: "' + record.reference + \
                                         '"\noriginal: "' + _row['description'] + '"\nnew:      "' + description + '"')
