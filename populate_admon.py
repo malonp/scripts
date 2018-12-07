@@ -2,6 +2,7 @@
 # -*- coding: iso-8859-15 -*-
 
 import os
+import re
 import sys
 
 import logging
@@ -907,11 +908,25 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     if _row['sepa_mandate']!=pgnull:
                         sepa_mandate = Mandate(idmandate[_row['sepa_mandate']])
 
+                    if len(_row['description'])>140:
+                        description = re.sub(r'\\*\\n', '', _row['description'])
+                        if len(description)>140:
+                            description = description[:140]
+                            logging.error('<condo_payment>: description field trimmed to 140 characters')
+                    else:
+                        description = _row['description'].replace('\\r\\n', '').replace('\\n', '')
+
+                    if len(description) != len(_row['description']):
+                        logging.warning('<condo_payment>: description field size was bigger than 140' + \
+                                        '\ncondominium:  "' + unit.company.party.name + '"\nunit :        "' + unit.name + \
+                                        '"\npaymentgroup: "' + record.reference + \
+                                        '"\noriginal: "' + _row['description'] + '"\nnew:      "' + description + '"')
+
                     _record = CondoPayment(
                                            amount = Decimal(_row['amount']) if _row['amount']!=pgnull else None,
                                            currency = currency,
                                            date = datetime.strptime(_row['date'],"%Y-%m-%d") if _row['date']!=pgnull else None,
-                                           description = _row['description'] if _row['description']!=pgnull else None,
+                                           description = description if _row['description']!=pgnull else None,
                                            party = party,
                                            sepa_end_to_end_id = _row['sepa_end_to_end_id'] if _row['sepa_end_to_end_id']!=pgnull else None,
                                            sepa_mandate = sepa_mandate,
