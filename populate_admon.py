@@ -1043,15 +1043,14 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
         for row in csvreader:
 
-            if row['id'] in model_data_noupdate:
-                continue
-
+            _save = False
             record = Holidays(idhlds[row['id']])
 
-            if row['parent']!=pgnull:
+            if row['id'] not in model_data_noupdate and row['parent']!=pgnull:
                 parent = Holidays(idhlds[row['parent']])
 
                 record.parent = parent
+                _save = True
 
             with open(path_data_file(datadir, 'holidays_calendar-read-res_user.csv'), 'r') as _csvfile:
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
@@ -1061,6 +1060,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
                     if user.id not in record.read_users:
                         record.read_users.append(user)
+                        _save = True
 
             with open(path_data_file(datadir, 'holidays_calendar-write-res_user.csv'), 'r') as _csvfile:
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
@@ -1070,8 +1070,10 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
                     if user.id not in record.read_users:
                         record.write_users.append(user)
+                        _save = True
 
-            record.save()
+            if _save:
+                record.save()
 
     with open(path_data_file(datadir, 'recurrence.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
