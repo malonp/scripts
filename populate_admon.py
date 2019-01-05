@@ -110,10 +110,13 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     pgnull = r'\N'
 
     def get_bankaccountnumber(old_id):
+
         if old_id==pgnull:
+            logging.warning('<function get_bankaccountnumber>: Function called with null id')
             return None
 
         new_accountnumber = None
+
         with open(path_data_file(datadir, 'bank_account_number.csv'), 'r') as csvfile:
             csvreader = csv.DictReader(csvfile, delimiter='\t')
             accountnumber = next(filter(lambda f:f['id']==old_id, csvreader), None)
@@ -139,6 +142,11 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         return company
 
     def get_country(old_id):
+
+        if old_id==pgnull:
+            logging.warning('<function get_country>: Function called with null id')
+            return None
+
         new_country = None
 
         if old_id in cache_country:
@@ -162,6 +170,11 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         return new_country
 
     def get_currency(old_id):
+
+        if old_id==pgnull:
+            logging.warning('<function get_currency>: Function called with null id')
+            return None
+
         new_currency = None
 
         if old_id in cache_currency:
@@ -185,7 +198,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         return new_currency
 
     def get_lang(old_id):
+
         if old_id==pgnull:
+            logging.warning('<function get_lang>: Function called with null id')
             return None
 
         new_lang = None
