@@ -1,11 +1,7 @@
 #!/usr/bin/python
 # -*- coding: iso-8859-15 -*-
 
-import os
-import re
-import sys
-
-import logging
+import logging, os, re, sys
 
 def path_data_file(datadir=os.path.dirname(__file__) or os.getcwd(), name=''):
     return os.path.join(datadir, 'data', name)
@@ -47,18 +43,22 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     #must be after config.set_trytond call or will look always for sqlite database
     from trytond.transaction import Transaction
 
+    AccountConfiguration = Model.get('bank.configuration-account')
     Address = Model.get('party.address')
     AddressFormat = Model.get('party.address.format')
     Bank = Model.get('bank')
     BankAccount = Model.get('bank.account')
     BankAccountNumber = Model.get('bank.account.number')
+    BankConfiguration = Model.get('bank.configuration-bank')
     Category = Model.get('party.category')
     Company = Model.get('company.company')
+    CompanyConfiguration = Model.get('company.configuration')
     CondoFactor = Model.get('condo.factor')
     CondoPain = Model.get('condo.payment.pain')
     CondoParty = Model.get('condo.party')
     CondoPayment = Model.get('condo.payment')
     CondoPaymentGroup = Model.get('condo.payment.group')
+    CondoPaymentGroupConfiguration = Model.get('condo.payment.group.configuration')
     CondoUnit = Model.get('condo.unit')
     ContactMechanism = Model.get('party.contact_mechanism')
     Country = Model.get('country.country')
@@ -70,8 +70,10 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     Identifier = Model.get('party.identifier')
     Lang = Model.get('ir.lang')
     Mandate = Model.get('condo.payment.sepa.mandate')
+    MandateConfiguration = Model.get('condo.payment.sepa.mandate.configuration')
     ModelData = Model.get('ir.model.data')
     Party = Model.get('party.party')
+    PartyConfiguration = Model.get('party.configuration')
     PartyRelation = Model.get('party.relation.all')
     PartyRelationType = Model.get('party.relation.type')
     Recurrence = Model.get('recurrence')
@@ -256,6 +258,114 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             cache_subdivision[old_id] = new_subdivision.id
 
         return new_subdivision
+
+#Begin default values
+    record = PartyConfiguration(1)
+    _save = False
+
+    with open(path_data_file(datadir, 'party_configuration_party_country.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+            country = get_country(row['party_country'])
+
+            if country:
+                _save = True
+                record.party_country = country
+
+    #get only a general value (not company specific)
+    with open(path_data_file(datadir, 'party_configuration_party_lang.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in filter(lambda f:f['company']==pgnull, csvreader):
+            lang = get_lang(row['party_lang'])
+
+            if lang:
+                _save = True
+                record.party_lang = lang
+
+    with open(path_data_file(datadir, 'party_configuration_party_phonecountry.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+            country = get_country(row['party_phonecountry'])
+
+            if country:
+                _save = True
+                record.party_phonecountry = country
+
+    if _save:
+        record.save()
+
+    with open(path_data_file(datadir, 'bank_configuration-bank.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+            record = BankConfiguration(1)
+
+            country = get_country(row['bank_country'])
+
+            if country:
+                record.bank_country = country
+                record.save()
+
+    with open(path_data_file(datadir, 'bank_configuration-account.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+            record = AccountConfiguration(1)
+
+            currency = get_currency(row['account_currency'])
+
+            if currency:
+                record.account_currency = currency
+                record.save()
+
+    record = CompanyConfiguration(1)
+    _save = False
+
+    with open(path_data_file(datadir, 'company_configuration.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+
+            currency = get_currency(row['company_currency'])
+            if currency:
+                _save = True
+                record.company_currency = currency
+
+            #note: package pytz must be installed on server (otherwise comment out timezone field attribution)
+            timezone = row['company_timezone']
+            if timezone:
+                _save = True
+                record.company_timezone = timezone
+
+    if _save:
+        record.save()
+
+    with open(path_data_file(datadir, 'condo_payment_group_configuration.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+            record = CondoPaymentGroupConfiguration(1)
+
+            record.sepa_batch_booking_selection = row['sepa_batch_booking_selection'] if row['sepa_batch_booking_selection']!=pgnull else None
+            record.sepa_charge_bearer = row['sepa_charge_bearer'] if row['sepa_charge_bearer']!=pgnull else None
+
+            record.save()
+
+    with open(path_data_file(datadir, 'condo_payment_sepa_mandate_configuration.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        for row in csvreader:
+            record = MandateConfiguration(1)
+
+            record.scheme = row['scheme'] if row['scheme']!=pgnull else None
+            record.type = row['type'] if row['type']!=pgnull else None
+
+            record.save()
+
+#End default values
 
     with open(path_data_file(datadir, 'res_group.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
