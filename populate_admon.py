@@ -259,6 +259,36 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
         return new_subdivision
 
+    def set_translation(row, table, field):
+
+        with open(path_data_file(datadir, 'ir_translation.csv'), 'r') as _csvfile:
+            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
+
+            for _row in filter(lambda f:f['name']==(table + ',' + field) and f['type']=='model' and f['res_id']==row['id'], _csvreader):
+
+                if _row['src']!=row[field]:
+                    logging.warning('<ir_translation>: src of translation "{0}" not equal to {1} {2} "{3}"'.format(_row['src'], table, field, row[field]))
+
+                translations = Translation.find([
+                                                 ('lang', '=', _row['lang']),
+                                                 ('name', '=', table + ',' + field),
+                                                 ('res_id', '=', row['_new_id']),
+                                                 ('src', '=', row[field]),
+                                                 ('type', '=', 'model'),
+                                                ])
+
+                if not len(translations):
+                    _record = Translation(
+                                          lang = _row['lang'],
+                                          module = _row['module'] if _row['module']!=pgnull else None,
+                                          name = _row['name'] if _row['name']!=pgnull else None,
+                                          res_id = int(row['_new_id']),
+                                          src = row[field],    #_row['src'] should be equal to row[field]
+                                          type = _row['type'] if _row['type']!=pgnull else None,
+                                          value = _row['value'],
+                                         )
+                    _record.save()
+
 #Begin default values
     record = PartyConfiguration(1)
     _save = False
@@ -467,10 +497,13 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                               parent = parent,
                              )
             record.save()
+
             row['_new_id'] = record.id
+            set_translation(row, 'party.category', 'name')
 
         elif len(category)==1:
             row['_new_id'] = category[0].id
+            set_translation(row, 'party.category', 'name')
         else:
             logging.error('<party_category>: Category not found with name: ' + row['name'])
 
@@ -482,33 +515,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         record.save()
         row['_new_id'] = record.id
 
-        with open(path_data_file(datadir, 'ir_translation.csv'), 'r') as _csvfile:
-            _csvreader = csv.DictReader(_csvfile, delimiter='\t')
-
-            for _row in filter(lambda f:f['name']=='party.relation.type,name' and f['type']=='model' and f['res_id']==row['id'], _csvreader):
-
-                if _row['src']!=row['name']:
-                    logging.warning('<ir_translation>: src of translation "{0}" not equal to relation type name "{1}"'.format(_row['src'], row['name']))
-
-                translations = Translation.find([
-                                                 ('lang', '=', _row['lang']),
-                                                 ('name', '=', 'party.relation.type,name'),
-                                                 ('res_id', '=', row['_new_id']),
-                                                 ('src', '=', row['name']),
-                                                 ('type', '=', 'model'),
-                                                ])
-
-                if not len(translations):
-                    _record = Translation(
-                                          lang = _row['lang'],
-                                          module = _row['module'] if _row['module']!=pgnull else None,
-                                          name = _row['name'] if _row['name']!=pgnull else None,
-                                          res_id = int(row['_new_id']),
-                                          src = row['name'],    #_row['src'] should be equal to row['name']
-                                          type = _row['type'] if _row['type']!=pgnull else None,
-                                          value = _row['value'],
-                                         )
-                    _record.save()
+        set_translation(row, 'party.relation.type', 'name')
 
     for row in table['party_relation_type']:
         if row['reverse']!=pgnull:
