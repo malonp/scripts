@@ -103,7 +103,10 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     cache_subdivision = {}
 
     ni = 0
-    nt = 10
+    nt = 11
+
+    def desc(n: int) -> str:
+        return 'Load {0:<'+ str(27 - len(str(n)))  + 's} ({1}/{2})'
 
     party_seq, = Sequence.find([('name', '=', 'Party')])
     party_seq.number_next = 10001
@@ -527,11 +530,45 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             record.reverse = reverse
             record.save()
 
+    with open(path_data_file(datadir, 'bank.csv'), 'r') as csvfile:
+        csvreader = csv.DictReader(csvfile, delimiter='\t')
+
+        ni += 1
+        for row in tqdm(csvreader, desc=desc(ni).format('bank', ni, nt), total=rawgencount(path_data_file(datadir, 'bank.csv'))-1):
+            banks = None
+
+            country = get_country(row['country'])
+            if country and row['code']:
+                banks = Bank.find([
+                                    ('code', '=', row['code']),
+                                    ('country', '=', country.id),
+                                  ])
+
+            if banks and len(banks)==1:
+                bank = banks[0]
+
+                if all(k in row for k in ('subset', 'country_subset')):
+                    if not(row['subset']=='f' or row['subset']==0):
+                        bank.subset = True
+                        _save = True
+
+                    country_subset = get_country(row['country_subset'])
+                    if country_subset:
+                        bank.country_subset = country_subset.id
+                        _save = True
+
+                    if _save:
+                        bank.save()
+
+            else:
+                logging.error('<bank>: Bank not found code: ' + row['code'])
+
+
     with open(path_data_file(datadir, 'bank_account.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('bank_account', ni, nt), total=rawgencount(path_data_file(datadir, 'bank_account.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('bank_account', ni, nt), total=rawgencount(path_data_file(datadir, 'bank_account.csv'))-1):
             bank, currency = None, get_currency(row['currency'])
 
             with open(path_data_file(datadir, 'bank.csv'), 'r') as _csvfile:
@@ -606,7 +643,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni +=1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_address_format', ni, nt), total=rawgencount(path_data_file(datadir, 'party_address_format.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('party_address_format', ni, nt), total=rawgencount(path_data_file(datadir, 'party_address_format.csv'))-1):
 
             if row['id'] in model_data_noupdate:
                 continue
@@ -670,7 +707,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni +=1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('party_party', ni, nt), total=rawgencount(path_data_file(datadir, 'party_party.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('party_party', ni, nt), total=rawgencount(path_data_file(datadir, 'party_party.csv'))-1):
 
             if row['id'] in model_data_noupdate:
                 continue
@@ -834,7 +871,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('company_company', ni, nt), total=rawgencount(path_data_file(datadir, 'company_company.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('company_company', ni, nt), total=rawgencount(path_data_file(datadir, 'company_company.csv'))-1):
 
             currency = get_currency(row['currency'])
             party = get_party(row['party'])
@@ -896,7 +933,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_sepa_mandate', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_payment_sepa_mandate.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('condo_payment_sepa_mandate', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_payment_sepa_mandate.csv'))-1):
             company = get_company(row['company'])
             party = get_party(row['party'])
             accountnumber = get_bankaccountnumber(row['account_number'])
@@ -923,7 +960,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_unit', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_unit.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('condo_unit', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_unit.csv'))-1):
 
             unit, = CondoUnit.find([
                                     ('name', '=', row['name']),
@@ -984,7 +1021,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_pain', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_payment_pain.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('condo_payment_pain', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_payment_pain.csv'))-1):
             company = get_company(row['company'])
 
             record = CondoPain(
@@ -994,6 +1031,15 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                                sepa_receivable_flavor = row['sepa_receivable_flavor'] if row['sepa_receivable_flavor']!=pgnull else None,
                                state = row['state'] if row['state']!=pgnull else None,
                               )
+
+            if all(k in row for k in ('subset', 'country_subset')):
+                if not(row['subset']=='f' or row['subset']==0):
+                    record.subset = True
+
+                    country_subset = get_country(row['country_subset'])
+                    if country_subset:
+                        record.country_subset = country_subset.id
+
             record.save()
             idpains[row['id']] = record.id
 
@@ -1001,7 +1047,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('condo_payment_group', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_payment_group.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('condo_payment_group', ni, nt), total=rawgencount(path_data_file(datadir, 'condo_payment_group.csv'))-1):
 
             company = get_company(row['company'])
 
@@ -1086,7 +1132,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('holidays_calendar', ni, nt), total=rawgencount(path_data_file(datadir, 'holidays_calendar.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('holidays_calendar', ni, nt), total=rawgencount(path_data_file(datadir, 'holidays_calendar.csv'))-1):
 
             if row['id'] in model_data_noupdate:
                 records = ModelData.find([
@@ -1211,7 +1257,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         ni += 1
-        for row in tqdm(csvreader, desc='Load {0:<26s} ({1}/{2})'.format('recurrence', ni, nt), total=rawgencount(path_data_file(datadir, 'recurrence.csv'))-1):
+        for row in tqdm(csvreader, desc=desc(ni).format('recurrence', ni, nt), total=rawgencount(path_data_file(datadir, 'recurrence.csv'))-1):
 
             record = Recurrence(
                                 active = False if (row['active']=='f' or row['active']==0) else True,
