@@ -547,22 +547,12 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             if banks and len(banks)==1:
                 bank = banks[0]
 
-                if all(k in row for k in ('subset', 'country_subset')):
-                    if not(row['subset']=='f' or row['subset']==0):
-                        bank.subset = True
-                        _save = True
-
-                    country_subset = get_country(row['country_subset'])
-                    if country_subset:
-                        bank.country_subset = country_subset.id
-                        _save = True
-
-                    if _save:
-                        bank.save()
+                bank.subset = False if (row['subset']=='f' or row['subset']==0) else True
+                bank.country_subset = get_country(row['country_subset']) if row['country_subset']!=pgnull else None
+                bank.save()
 
             else:
                 logging.error('<bank>: Bank not found code: ' + row['code'])
-
 
     with open(path_data_file(datadir, 'bank_account.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -1026,19 +1016,13 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
             record = CondoPain(
                                company = company,
+                               country_subset = get_country(row['country_subset']) if row['country_subset']!=pgnull else None,
                                message = row['message'].replace('\\r\\n', '\n').replace('\\n', '\n') if row['message']!=pgnull else None,
                                reference = row['reference'] if row['reference']!=pgnull else None,
                                sepa_receivable_flavor = row['sepa_receivable_flavor'] if row['sepa_receivable_flavor']!=pgnull else None,
                                state = row['state'] if row['state']!=pgnull else None,
+                               subset = False if (row['subset']=='f' or row['subset']==0) else True
                               )
-
-            if all(k in row for k in ('subset', 'country_subset')):
-                if not(row['subset']=='f' or row['subset']==0):
-                    record.subset = True
-
-                    country_subset = get_country(row['country_subset'])
-                    if country_subset:
-                        record.country_subset = country_subset.id
 
             record.save()
             idpains[row['id']] = record.id
