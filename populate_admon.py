@@ -994,8 +994,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                             sepa_mandate = Mandate(idmandate[_row['sepa_mandate']])
 
                         _record = CondoParty(
-                                            #compatibility with previous versions
-                                             address = address if (_row['address']!=pgnull or ('mail' in _row and (_row['mail']!='f' and _row['mail']!=0))) else None,
+                                             address = address if _row['address']!=pgnull else None,
                                              party = party,
                                              role = _row['role'] if _row['role']!=pgnull else None,
                                              sepa_mandate = sepa_mandate,
@@ -1036,7 +1035,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             company = get_company(row['company'])
 
             pain = None
-            if row['pain']!=pgnull: #case condo_payment_group is included in any pain message
+
+            #case condo_payment_group is included in any pain message
+            if row['pain']!=pgnull:
                 pain = CondoPain(idpains[row['pain']])
                 if not pain:
                     logging.error('<condo_payment_group>: Payment Group with reference ' + row['reference'] + ' of condominium ' + company.party.name + ' not found')
