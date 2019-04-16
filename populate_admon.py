@@ -1050,7 +1050,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         )
 
                         if not address:
-                            logging.error(
+                            logging.warning(
                                 '<condo_party>: Mail address not found for party id: '
                                 + str(idparties[_row['party']])
                                 + ' and name:'
