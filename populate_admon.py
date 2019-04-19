@@ -162,8 +162,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         new_country = None
 
         if old_id in cache_country:
-            new_country = Country(cache_country[old_id])
-            return new_country
+            return Country(cache_country[old_id])
 
         with open(path_data_file(datadir, 'country_country.csv'), 'r') as csvfile:
             csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -190,8 +189,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         new_currency = None
 
         if old_id in cache_currency:
-            new_currency = Currency(cache_currency[old_id])
-            return new_currency
+            return Currency(cache_currency[old_id])
 
         with open(path_data_file(datadir, 'currency_currency.csv'), 'r') as csvfile:
             csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -218,8 +216,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         new_lang = None
 
         if old_id in cache_lang:
-            new_lang = Lang(cache_lang[old_id])
-            return new_lang
+            return Lang(cache_lang[old_id])
 
         with open(path_data_file(datadir, 'ir_lang.csv'), 'r') as csvfile:
             csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -249,8 +246,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     def get_subdivision(old_id, country):
 
         if old_id in cache_subdivision:
-            new_subdivision = Subdivision(cache_subdivision[old_id])
-            return new_subdivision
+            return Subdivision(cache_subdivision[old_id])
 
         with open(path_data_file(datadir, 'country_subdivision.csv'), 'r') as csvfile:
             csvreader = csv.DictReader(csvfile, delimiter='\t')
