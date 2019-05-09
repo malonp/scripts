@@ -921,7 +921,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     currency=currency,
                     footer=row['footer'] if row['footer'] != pgnull else '',
                     header=row['header'] if row['header'] != pgnull else '',
-                    is_Condominium=False if (row['is_Condominium'] == 'f' or row['is_Condominium'] == 0) else True,
+                    is_condo=False if (row['is_Condominium'] == 'f' or row['is_Condominium'] == 0) else True,
                     parent=None,
                     party=party,
                     sepa_creditor_identifier=row['sepa_creditor_identifier']
@@ -935,7 +935,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         name=_row['name'] if _row['name'] != pgnull else None,
                         notes=_row['notes'] if _row['notes'] != pgnull else None,
                     )
-                    record.condo_factors.append(_record)
+                    record.condofactors.append(_record)
 
                 with open(path_data_file(datadir, 'condo_unit.csv'), 'r') as _csvfile:
                     _csvreader = csv.DictReader(_csvfile, delimiter='\t')
@@ -944,7 +944,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         filter(lambda f: f['company'] == row['id'], _csvreader), key=lambda f: f['name']
                     ):
                         _record = CondoUnit(name=_row['name'] if _row['name'] != pgnull else None)
-                        record.condo_units.append(_record)
+                        record.units.append(_record)
 
                 record.save()
                 idcompany[row['id']] = record.id
@@ -1026,10 +1026,13 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     for _row in filter(lambda f: f['unit'] == row['id'], _csvreader):
                         for __row in filter(lambda f: f['id'] == _row['factor'], table['condo_factor']):
                             company = get_company(__row['company'])
-                            factor, = CondoFactor.find([('name', '=', __row['name']), ('company', '=', company.id)])
-                        if factor:
+                            condofactor, = CondoFactor.find(
+                                [('name', '=', __row['name']), ('company', '=', company.id)]
+                            )
+                        if condofactor:
                             _record = UnitFactor(
-                                factor=factor, value=Decimal(_row['value']) if _row['value'] != pgnull else None
+                                condofactor=condofactor,
+                                value=Decimal(_row['value']) if _row['value'] != pgnull else None,
                             )
                             unit.factors.append(_record)
                         else:
@@ -1041,9 +1044,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     for _row in filter(lambda f: f['unit'] == row['id'], _csvreader):
                         address = Address(idaddress[_row['address']]) if _row['address'] in idaddress else None
                         party = get_party(_row['party'])
-                        sepa_mandate = (
-                            Mandate(idmandate[_row['sepa_mandate']]) if _row['sepa_mandate'] != pgnull else None
-                        )
+                        mandate = Mandate(idmandate[_row['sepa_mandate']]) if _row['sepa_mandate'] != pgnull else None
 
                         if not address:
                             logging.warning(
@@ -1057,9 +1058,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                             address=address if _row['address'] != pgnull else None,
                             party=party,
                             role=_row['role'] if _row['role'] != pgnull else None,
-                            sepa_mandate=sepa_mandate,
+                            mandate=mandate,
                         )
-                        unit.parties.append(_record)
+                        unit.condoparties.append(_record)
 
                 unit.save()
                 idunits[row['id']] = unit.id
@@ -1142,7 +1143,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     currency = get_currency(_row['currency'])
                     party = get_party(_row['party'])
                     unit = CondoUnit(idunits[_row['unit']]) if _row['unit'] != pgnull else None
-                    sepa_mandate = Mandate(idmandate[_row['sepa_mandate']]) if _row['sepa_mandate'] != pgnull else None
+                    mandate = Mandate(idmandate[_row['sepa_mandate']]) if _row['sepa_mandate'] != pgnull else None
 
                     if len(_row['description']) > 140:
                         description = re.sub(r'\\*\\n', '', _row['description'])
@@ -1175,7 +1176,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         description=description if _row['description'] != pgnull else None,
                         party=party,
                         sepa_end_to_end_id=_row['sepa_end_to_end_id'] if _row['sepa_end_to_end_id'] != pgnull else None,
-                        sepa_mandate=sepa_mandate,
+                        mandate=mandate,
                         state=_row['state'] if _row['state'] != pgnull else None,
                         type=_row['type'] if _row['type'] != pgnull else None,
                         unit=unit,
