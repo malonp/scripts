@@ -921,7 +921,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     currency=currency,
                     footer=row['footer'] if row['footer'] != pgnull else '',
                     header=row['header'] if row['header'] != pgnull else '',
-                    is_condo=False if (row['is_Condominium'] == 'f' or row['is_Condominium'] == 0) else True,
+                    is_condo=False if (row['is_condo'] == 'f' or row['is_condo'] == 0) else True,
                     parent=None,
                     party=party,
                     sepa_creditor_identifier=row['sepa_creditor_identifier']
@@ -1024,7 +1024,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                     for _row in filter(lambda f: f['unit'] == row['id'], _csvreader):
-                        for __row in filter(lambda f: f['id'] == _row['factor'], table['condo_factor']):
+                        for __row in filter(lambda f: f['id'] == _row['condofactor'], table['condo_factor']):
                             company = get_company(__row['company'])
                             condofactor, = CondoFactor.find(
                                 [('name', '=', __row['name']), ('company', '=', company.id)]
@@ -1044,7 +1044,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     for _row in filter(lambda f: f['unit'] == row['id'], _csvreader):
                         address = Address(idaddress[_row['address']]) if _row['address'] in idaddress else None
                         party = get_party(_row['party'])
-                        mandate = Mandate(idmandate[_row['sepa_mandate']]) if _row['sepa_mandate'] != pgnull else None
+                        mandate = Mandate(idmandate[_row['mandate']]) if _row['mandate'] != pgnull else None
 
                         if not address:
                             logging.warning(
@@ -1143,7 +1143,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     currency = get_currency(_row['currency'])
                     party = get_party(_row['party'])
                     unit = CondoUnit(idunits[_row['unit']]) if _row['unit'] != pgnull else None
-                    mandate = Mandate(idmandate[_row['sepa_mandate']]) if _row['sepa_mandate'] != pgnull else None
+                    mandate = Mandate(idmandate[_row['mandate']]) if _row['mandate'] != pgnull else None
 
                     if len(_row['description']) > 140:
                         description = re.sub(r'\\*\\n', '', _row['description'])
