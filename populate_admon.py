@@ -999,11 +999,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     '<condo_payment_sepa_mandate>: Bank account number '
                     + accountnumber.number
                     + ' without owner but used in mandate '
-                    + row['identification']
-                    if row['identification'] != pgnull
-                    else None + ' with state ' + row['state']
-                    if row['state'] != pgnull
-                    else None
+                    + (row['identification'] if row['identification'] != pgnull else None)
+                    + ' with state '
+                    + (row['state'] if row['state'] != pgnull else None)
                 )
             idmandate[row['id']] = record.id
 
