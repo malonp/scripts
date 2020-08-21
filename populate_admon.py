@@ -788,17 +788,30 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in filter(lambda f: f['party'] == row['id'], _csvreader):
-                    _record = ContactMechanism(
-                        active=False if (_row['active'] == 'f' or _row['active'] == 0) else True,
-                        comment=_row['comment'].replace('\\r\\n', '\n').replace('\\n', '\n')
-                        if _row['comment'] != pgnull
-                        else None,
-                        name=_row['name'] if _row['name'] != pgnull else None,
-                        sequence=int(_row['sequence']) if _row['sequence'] != pgnull else None,
-                        type=_row['type'] if _row['type'] != pgnull else None,
-                        value=_row['value'] if _row['value'] != pgnull else None,
-                    )
-                    record.contact_mechanisms.append(_record)
+                    if _row['value'] != pgnull:
+                        _record = ContactMechanism(
+                            active=False if (_row['active'] == 'f' or _row['active'] == 0) else True,
+                            comment=_row['comment'].replace('\\r\\n', '\n').replace('\\n', '\n')
+                            if _row['comment'] != pgnull
+                            else None,
+                            name=_row['name'] if _row['name'] != pgnull else None,
+                            sequence=int(_row['sequence']) if _row['sequence'] != pgnull else None,
+                            type=_row['type'] if _row['type'] != pgnull else None,
+                            value=_row['value'] if _row['value'] != pgnull else None,
+                        )
+                        record.contact_mechanisms.append(_record)
+                    elif _row['active'] not in ('f', 0):
+                        logging.error('<party_contact_mechanism>: Active record with null value and value_compact:'
+                            + _row['value_compact']
+                            + ' from party with id: ' + row['id']
+                            + ' and name: ' + row['name']
+                        )
+                    else:
+                        logging.warning('<party_contact_mechanism>: Inactive record with null value and value_compact:'
+                            + _row['value_compact']
+                            + ' from party with id: ' + row['id']
+                            + ' and name: ' + row['name']
+                        )
 
             seen = set()
 
