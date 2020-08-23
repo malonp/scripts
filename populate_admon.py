@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: iso-8859-15 -*-
 
 import logging, os, re, sys
@@ -113,7 +113,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     def desc(n: int) -> str:
         return 'Load {0:<' + str(27 - len(str(n))) + 's} ({1}/{2})'
 
-    party_seq, = Sequence.find([('name', '=', 'Party')])
+    (party_seq,) = Sequence.find([('name', '=', 'Party')])
     party_seq.number_next = 10001
     party_seq.save()
 
@@ -253,7 +253,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             subdivision = next(filter(lambda f: f['id'] == old_id, csvreader), None)
 
         if subdivision and country:
-            new_subdivision, = Subdivision.find([('code', '=', subdivision['code']), ('country', '=', country.id)])
+            (new_subdivision,) = Subdivision.find([('code', '=', subdivision['code']), ('country', '=', country.id)])
 
         if not new_subdivision:
             logging.error('<function get_subdivision>: Subdivision not found id: ' + old_id)
@@ -788,17 +788,36 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
 
                 for _row in filter(lambda f: f['party'] == row['id'], _csvreader):
-                    _record = ContactMechanism(
-                        active=False if (_row['active'] == 'f' or _row['active'] == 0) else True,
-                        comment=_row['comment'].replace('\\r\\n', '\n').replace('\\n', '\n')
-                        if _row['comment'] != pgnull
-                        else None,
-                        name=_row['name'] if _row['name'] != pgnull else None,
-                        sequence=int(_row['sequence']) if _row['sequence'] != pgnull else None,
-                        type=_row['type'] if _row['type'] != pgnull else None,
-                        value=_row['value'] if _row['value'] != pgnull else None,
-                    )
-                    record.contact_mechanisms.append(_record)
+                    if _row['value'] != pgnull:
+                        _record = ContactMechanism(
+                            active=False if (_row['active'] == 'f' or _row['active'] == 0) else True,
+                            comment=_row['comment'].replace('\\r\\n', '\n').replace('\\n', '\n')
+                            if _row['comment'] != pgnull
+                            else None,
+                            name=_row['name'] if _row['name'] != pgnull else None,
+                            sequence=int(_row['sequence']) if _row['sequence'] != pgnull else None,
+                            type=_row['type'] if _row['type'] != pgnull else None,
+                            value=_row['value'] if _row['value'] != pgnull else None,
+                        )
+                        record.contact_mechanisms.append(_record)
+                    elif _row['active'] not in ('f', 0):
+                        logging.error(
+                            '<party_contact_mechanism>: Active record with null value and value_compact:'
+                            + _row['value_compact']
+                            + ' from party with id: '
+                            + row['id']
+                            + ' and name: '
+                            + row['name']
+                        )
+                    else:
+                        logging.warning(
+                            '<party_contact_mechanism>: Inactive record with null value and value_compact:'
+                            + _row['value_compact']
+                            + ' from party with id: '
+                            + row['id']
+                            + ' and name: '
+                            + row['name']
+                        )
 
             seen = set()
 
@@ -1015,7 +1034,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             total=rawgencount(path_data_file(datadir, 'condo_unit.csv')) - 1,
         ):
 
-            unit, = CondoUnit.find([('name', '=', row['name']), ('company', '=', idcompany[row['company']])])
+            (unit,) = CondoUnit.find([('name', '=', row['name']), ('company', '=', idcompany[row['company']])])
 
             if unit:
                 with open(path_data_file(datadir, 'condo_unit-factor.csv'), 'r') as _csvfile:
@@ -1024,7 +1043,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     for _row in filter(lambda f: f['unit'] == row['id'], _csvreader):
                         for __row in filter(lambda f: f['id'] == _row['condofactor'], table['condo_factor']):
                             company = get_company(__row['company'])
-                            condofactor, = CondoFactor.find(
+                            (condofactor,) = CondoFactor.find(
                                 [('name', '=', __row['name']), ('company', '=', company.id)]
                             )
                         if condofactor:
