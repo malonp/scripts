@@ -1,7 +1,10 @@
 #!/usr/bin/python3
 # -*- coding: iso-8859-15 -*-
 
-import logging, os, re, sys
+import logging
+import os
+import re
+import sys
 
 
 def path_data_file(datadir=os.path.dirname(__file__) or os.getcwd(), name=''):
@@ -24,15 +27,16 @@ def rawgencount(filename):
 
 def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
-    from proteus import config, Model
-
     import csv
+
+    from proteus import Model, config
 
     # http://stackoverflow.com/questions/15063936/csv-error-field-larger-than-field-limit-131072
     csv.field_size_limit(sys.maxsize)
 
-    from decimal import Decimal
     from datetime import datetime
+    from decimal import Decimal
+
     from tqdm import tqdm
 
     config = config.set_trytond(uri)
