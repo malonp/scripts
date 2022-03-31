@@ -711,7 +711,6 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         csvreader = csv.DictReader(csvfile, delimiter='\t')
 
         r = next(filter(lambda f: f['relation'] == 'ir.lang' and f['module'] == 'party', csvreader), None)
-        flang = r['id']
 
     with open(path_data_file(datadir, 'party_party.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
