@@ -890,10 +890,12 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     i += 1
 
             if i == 0 and len(record.addresses):
+                '''
                 logging.warning(
                     '<party_address>: Deleted {0} empty addresses of owner name: '.format(len(record.addresses))
                     + row['name']
                 )
+                '''
                 for address in record.addresses:
                     address.delete()
 
@@ -1065,7 +1067,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         address = Address(idaddress[_row['address']]) if _row['address'] in idaddress else None
                         party = get_party(_row['party'])
                         mandate = Mandate(idmandate[_row['mandate']]) if _row['mandate'] != pgnull else None
-
+                        '''
                         if not address:
                             logging.warning(
                                 '<condo_party>: Mail address is empty for party id: '
@@ -1073,9 +1075,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                                 + ' and name:'
                                 + party.name
                             )
-
+                        '''
                         _record = CondoParty(
-                            address=address if _row['address'] != pgnull else None,
+                            address=address,
                             party=party,
                             role=_row['role'] if _row['role'] != pgnull else None,
                             mandate=mandate,
