@@ -6,6 +6,8 @@ import os
 import re
 import sys
 
+logger = logging.getLogger()
+logger.setLevel(logging.WARNING)
 
 def path_data_file(datadir=os.path.dirname(__file__) or os.getcwd(), name=''):
     return os.path.join(datadir, 'data', name)
@@ -126,7 +128,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
     def get_bankaccountnumber(old_id):
 
         if old_id == pgnull:
-            logging.warning('<function get_bankaccountnumber>: Function called with null id')
+            logger.warning('<function get_bankaccountnumber>: Function called with null id')
             return None
 
         new_accountnumber = None
@@ -140,11 +142,11 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             if new_accountnumbers and len(new_accountnumbers) == 1:
                 new_accountnumber = new_accountnumbers[0]
             else:
-                logging.error(
+                logger.error(
                     '<function get_bankaccountnumber>: Bank account number not found: ' + accountnumber['number']
                 )
         else:
-            logging.error('<function get_bankaccountnumber>: Bank account number not found id: ' + old_id)
+            logger.error('<function get_bankaccountnumber>: Bank account number not found id: ' + old_id)
 
         return new_accountnumber
 
@@ -153,14 +155,14 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         company = Company(idcompany[old_id])
 
         if not company:
-            logging.error('<function get_company>: Company not found id: ' + old_id)
+            logger.error('<function get_company>: Company not found id: ' + old_id)
 
         return company
 
     def get_country(old_id):
 
         if old_id == pgnull:
-            logging.warning('<function get_country>: Function called with null id')
+            logger.warning('<function get_country>: Function called with null id')
             return None
 
         new_country = None
@@ -178,16 +180,16 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 new_country = new_countries[0]
                 cache_country[old_id] = new_country.id
             else:
-                logging.error('<function get_country>: Country not found code: ' + country['code'])
+                logger.error('<function get_country>: Country not found code: ' + country['code'])
         else:
-            logging.error('<function get_country>: Country not found id: ' + old_id)
+            logger.error('<function get_country>: Country not found id: ' + old_id)
 
         return new_country
 
     def get_currency(old_id):
 
         if old_id == pgnull:
-            logging.warning('<function get_currency>: Function called with null id')
+            logger.warning('<function get_currency>: Function called with null id')
             return None
 
         new_currency = None
@@ -205,16 +207,16 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 new_currency = new_currencies[0]
                 cache_currency[old_id] = new_currency.id
             else:
-                logging.error('<function get_currency>: Currency not found code: ' + currency['code'])
+                logger.error('<function get_currency>: Currency not found code: ' + currency['code'])
         else:
-            logging.error('<function get_currency>: Currency not found id: ' + old_id)
+            logger.error('<function get_currency>: Currency not found id: ' + old_id)
 
         return new_currency
 
     def get_lang(old_id):
 
         if old_id == pgnull:
-            logging.warning('<function get_lang>: Function called with null id')
+            logger.warning('<function get_lang>: Function called with null id')
             return None
 
         new_lang = None
@@ -232,9 +234,9 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 new_lang = new_langs[0]
                 cache_lang[old_id] = new_lang.id
             else:
-                logging.error('<function get_lang>: Lang not found code: ' + lang['code'])
+                logger.error('<function get_lang>: Lang not found code: ' + lang['code'])
         else:
-            logging.error('<function get_lang>: Lang not found id: ' + old_id)
+            logger.error('<function get_lang>: Lang not found id: ' + old_id)
 
         return new_lang
 
@@ -243,7 +245,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
         party = Party(idparties[old_id])
 
         if not party:
-            logging.error('<function get_party>: Party not found id: ' + old_id)
+            logger.error('<function get_party>: Party not found id: ' + old_id)
 
         return party
 
@@ -260,7 +262,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             (new_subdivision,) = Subdivision.find([('code', '=', subdivision['code']), ('country', '=', country.id)])
 
         if not new_subdivision:
-            logging.error('<function get_subdivision>: Subdivision not found id: ' + old_id)
+            logger.error('<function get_subdivision>: Subdivision not found id: ' + old_id)
         else:
             cache_subdivision[old_id] = new_subdivision.id
 
@@ -277,7 +279,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             ):
 
                 if _row['src'] != row[field]:
-                    logging.warning(
+                    logger.warning(
                         '<ir_translation>: src of translation "{0}" not equal to {1} {2} "{3}"'.format(
                             _row['src'], table, field, row[field]
                         )
@@ -448,7 +450,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         if groups and len(groups) == 1:
                             record.groups.append(groups[0])
                         else:
-                            logging.error('<res_user-res_group>: Group not found id: ' + row['id'])
+                            logger.error('<res_user-res_group>: Group not found id: ' + row['id'])
 
                 record.save()
 
@@ -500,7 +502,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             if r:
                 parent = Category(r['_new_id'])
             else:
-                logging.error('<party_category>: Category not found id: ' + row['id'])
+                logger.error('<party_category>: Category not found id: ' + row['id'])
 
         category = Category.find([('name', '=', row['name']), ('active', 'in', (True, False))])
         if (category is None) or len(category) == 0:
@@ -516,7 +518,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             row['_new_id'] = category[0].id
             set_translation(row, 'party.category', 'name')
         else:
-            logging.error('<party_category>: Category not found with name: ' + row['name'])
+            logger.error('<party_category>: Category not found with name: ' + row['name'])
 
     for row in sorted(table['party_relation_type'], key=lambda f: f['id']):
 
@@ -557,7 +559,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 bank.save()
 
             else:
-                logging.error('<bank>: Bank not found code: ' + row['code'])
+                logger.error('<bank>: Bank not found code: ' + row['code'])
 
     with open(path_data_file(datadir, 'bank_account.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -580,12 +582,12 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     if country:
                         banks = Bank.find([('code', '=', _row['code']), ('country', '=', country.id)])
                 else:
-                    logging.error('<bank>: Bank not found id: ' + row['bank'])
+                    logger.error('<bank>: Bank not found id: ' + row['bank'])
 
                 if banks and len(banks) == 1:
                     bank = banks[0]
                 else:
-                    logging.error('<bank>: Bank not found code: ' + _row['code'])
+                    logger.error('<bank>: Bank not found code: ' + _row['code'])
 
             record = BankAccount(
                 active=False if (row['active'] == 'f' or row['active'] == 0) else True, bank=bank, currency=currency
@@ -603,7 +605,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
                     # check if spanish bank account number is correct
                     if bank.code[0:2] == 'ES' and _row['number'][5:9] != bank.code[2:6]:
-                        logging.warning(
+                        logger.warning(
                             '<bank_account_number>: ' + _row['number'] + ' does not match bank ' + bank.code
                         )
 
@@ -621,7 +623,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
         orphans = [f['number'] for f in csvreader if f['account'] not in accounts]
         for row in orphans:
-            logging.warning('<bank_account_number>: Bank Account Number ' + row + ' without owner')
+            logger.warning('<bank_account_number>: Bank Account Number ' + row + ' without owner')
 
     # skip list of party.address.format in ir_model_data (loaded by modules)
     model_data_noupdate = {}
@@ -670,14 +672,14 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         record.language = lang
                         record.save()
 
-                        logging.warning(
+                        logger.warning(
                             '<party_address_format>: Record updated with country: '
                             + country.name
                             + ' and with fs_id: '
                             + model_data_update[row['id']]
                         )
                     else:
-                        logging.error(
+                        logger.error(
                             '<party_address_format>: Record with fs_id ' + model_data_update[row['id']] + ' not found'
                         )
 
@@ -783,7 +785,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
             num = numaddresses - i
             if num != 0 and i != 0:
-                logging.info(
+                logger.info(
                     '<party_address>: {0} empty addresses not created for party name: '.format(num) + row['name']
                 )
 
@@ -804,7 +806,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         )
                         record.contact_mechanisms.append(_record)
                     elif _row['active'] not in ('f', 0):
-                        logging.error(
+                        logger.error(
                             '<party_contact_mechanism>: Active record with null value and value_compact:'
                             + _row['value_compact']
                             + ' from party with id: '
@@ -813,7 +815,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                             + row['name']
                         )
                     else:
-                        logging.warning(
+                        logger.warning(
                             '<party_contact_mechanism>: Inactive record with null value and value_compact:'
                             + _row['value_compact']
                             + ' from party with id: '
@@ -829,7 +831,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
                 for _row in filter(lambda f: f['owner'] == row['id'], _csvreader):
                     if _row['account'] in seen:
-                        logging.error(
+                        logger.error(
                             '<bank_account-party_party>: user already defined this bank account: ' + _row['account']
                         )
                         continue
@@ -841,7 +843,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     if account:
                         record.bank_accounts.append(account)
                     else:
-                        logging.errort('<bank_account-party_party>: Bank Account not found id: ' + _row['account'])
+                        logger.errort('<bank_account-party_party>: Bank Account not found id: ' + _row['account'])
 
             with open(path_data_file(datadir, 'party_identifier.csv'), 'r') as _csvfile:
                 _csvreader = csv.DictReader(_csvfile, delimiter='\t')
@@ -862,7 +864,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         category = Category(r['_new_id'])
                         record.categories.append(category)
                     else:
-                        logging.error('<party_category_rel>: Category not found id: ' + _row['category'])
+                        logger.error('<party_category_rel>: Category not found id: ' + _row['category'])
 
             record.save()
             idparties[row['id']] = record.id
@@ -890,7 +892,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     i += 1
 
             if i == 0 and len(record.addresses):
-                logging.info(
+                logger.info(
                     '<party_address>: Deleted {0} empty addresses of owner name: '.format(len(record.addresses))
                     + row['name']
                 )
@@ -973,7 +975,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 idcompany[row['id']] = record.id
 
             else:
-                logging.error('<company_company>: Company not found with id: ' + row['id'])
+                logger.error('<company_company>: Company not found with id: ' + row['id'])
 
     # set parent of companies
     with open(path_data_file(datadir, 'company_company.csv'), 'r') as csvfile:
@@ -988,7 +990,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                     record.parent = parent
                     record.save()
                 else:
-                    logging.error('<company_company>: Company not found id: ' + row['id'])
+                    logger.error('<company_company>: Company not found id: ' + row['id'])
 
     with open(path_data_file(datadir, 'condo_payment_sepa_mandate.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -1018,7 +1020,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
             if accountnumber.account.owners and len(accountnumber.account.owners):
                 record.save()
             else:
-                logging.error(
+                logger.error(
                     '<condo_payment_sepa_mandate>: Bank account number '
                     + accountnumber.number
                     + ' without owner but used in mandate '
@@ -1057,7 +1059,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                             )
                             unit.factors.append(_record)
                         else:
-                            logging.error('<condo_unit-factor>: Unit Factor not found id: ' + row['id'])
+                            logger.error('<condo_unit-factor>: Unit Factor not found id: ' + row['id'])
 
                 with open(path_data_file(datadir, 'condo_party.csv'), 'r') as _csvfile:
                     _csvreader = csv.DictReader(_csvfile, delimiter='\t')
@@ -1068,7 +1070,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         mandate = Mandate(idmandate[_row['mandate']]) if _row['mandate'] != pgnull else None
 
                         if not address:
-                            logging.info(
+                            logger.info(
                                 '<condo_party>: Mail address is empty for party id: '
                                 + str(idparties[_row['party']])
                                 + ' and name:'
@@ -1086,7 +1088,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 unit.save()
                 idunits[row['id']] = unit.id
             else:
-                logging.error('<condo_unit>: Unit not found id: ' + row['id'])
+                logger.error('<condo_unit>: Unit not found id: ' + row['id'])
 
     with open(path_data_file(datadir, 'condo_payment_pain.csv'), 'r') as csvfile:
         csvreader = csv.DictReader(csvfile, delimiter='\t')
@@ -1131,7 +1133,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
             # case condo_payment_group is included in any pain message
             if not pain:
-                logging.error(
+                logger.error(
                     '<condo_payment_group>: Payment Group with reference '
                     + row['reference']
                     + ' of condominium '
@@ -1170,12 +1172,12 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         description = re.sub(r'\\*\\n', '', _row['description'])
                         if len(description) > 140:
                             description = description[:140]
-                            logging.error('<condo_payment>: description field trimmed to 140 characters')
+                            logger.error('<condo_payment>: description field trimmed to 140 characters')
                     else:
                         description = _row['description'].replace('\\r\\n', '').replace('\\n', '')
 
                     if len(description) != len(_row['description']):
-                        logging.warning(
+                        logger.warning(
                             '<condo_payment>: description field size changed'
                             + '\ncondominium:  "'
                             + unit.company.party.name
@@ -1235,7 +1237,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                 if records and len(records) == 1:
                     idhlds[row['id']] = records[0].db_id
                 else:
-                    logging.warning(
+                    logger.warning(
                         '<holidays_calendar>: Calendar not found with fs_id: ' + model_data_noupdate[row['id']]
                     )
 
@@ -1258,14 +1260,14 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
                         calendar.owner = owner
                         calendar.save()
 
-                        logging.warning(
+                        logger.warning(
                             '<holidays_calendar>: Record updated with name: '
                             + calendar.name
                             + ' and fs_id: '
                             + model_data_update[row['id']]
                         )
                 else:
-                    logging.error(
+                    logger.error(
                         '<holidays_calendar>: Record with fs_id ' + model_data_update[row['id']] + ' not found'
                     )
 
