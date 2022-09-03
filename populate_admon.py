@@ -9,6 +9,7 @@ import sys
 logger = logging.getLogger()
 logger.setLevel(logging.WARNING)
 
+
 def path_data_file(datadir=os.path.dirname(__file__) or os.getcwd(), name=''):
     return os.path.join(datadir, 'data', name)
 
@@ -605,9 +606,7 @@ def populate(uri, datadir=os.path.dirname(__file__) or os.getcwd()):
 
                     # check if spanish bank account number is correct
                     if bank.code[0:2] == 'ES' and _row['number'][5:9] != bank.code[2:6]:
-                        logger.warning(
-                            '<bank_account_number>: ' + _row['number'] + ' does not match bank ' + bank.code
-                        )
+                        logger.warning('<bank_account_number>: ' + _row['number'] + ' does not match bank ' + bank.code)
 
                 record.save()
                 idaccount[row['id']] = record.id
